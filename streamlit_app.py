@@ -23,7 +23,7 @@ st.markdown("<br>",unsafe_allow_html=True)
 
 pages = st.navigation({ 
     "Models": [
-        st.Page("pages/steering-angle.py", title="Steering Angle Prediction"),
-        st.Page("pages/soon.py", title="Soon...")],})
+        st.Page("apps/steering-angle.py", title="Steering Angle Prediction"),
+        st.Page("apps/soon.py", title="Soon...")],})
 
 pages.run()
