@@ -299,7 +299,7 @@ with col2:
 
                     # Create Animation section with fixed parameters
                     st.write("")
-                    st.subheader("Frames Preview")
+                    '''st.subheader("Frames Preview")
                     st.write("Preview of the processed frames with steering angle overlay.")
                     st.markdown("<div class='glassmorphic-container'>", unsafe_allow_html=True)
 
@@ -308,7 +308,7 @@ with col2:
                         gif_duration = int(st.session_state.fps_target*.25) if int(st.session_state.fps_target*.25) > 0 else 1  # FPS for slow motion
                         gif_quality = 30  # Quality
                         gif_size = 50     # Size percentage
-                        
+                        s
                         # Create animation automatically
                         from PIL import Image
                         import io
@@ -568,7 +568,7 @@ with col2:
                         st.markdown("</div>", unsafe_allow_html=True)
 
                     else:
-                        st.warning("No frames available to create animations")
+                        st.warning("No frames available to create animations")'''
 
                     st.markdown("</div>", unsafe_allow_html=True)
 
