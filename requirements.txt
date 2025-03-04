@@ -1,8 +1,8 @@
 streamlit==1.30.0
-numpy==1.25.2
-pandas==2.0.3
-matplotlib==3.7.2
+numpy
+pandas
+matplotlib
 plotly==5.18.0
 opencv-python-headless==4.8.1.78
-Pillow==10.0.0
-onnxruntime-gpu==1.17.0
+Pillow
+onnxruntime-gpu
