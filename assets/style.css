@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+/* Global styles 
+.stApp {
+    background: linear-gradient(135deg, #272730 0%, #000000 100%);
+}*/
+
+
+
+/* Button styles */
+.stButton button {
+    background: linear-gradient(90deg, #FF1E1E, #FF1E1E);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+    align-items: center;
+}
+
+.stButton button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 30, 30, 0.4);
+}
+
+/* Tabs styling */
+.stTabs {
+    /*background: rgba(51, 49, 49, 0.4);*/
+    border-radius: 15px;
+    padding: 10px;
+    margin-bottom: 20px;
+}
+
+/* Center the tab container */
+.stTabs [data-testid="stTabsHeader"] {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Style for individual tabs */
+.stTab {
+    background: transparent !important;
+    color: #FFFFFF !important;
+    font-family: 'Orbitron', sans-serif;
+    margin: 0 5px;  /* Add some space between tabs */
+    min-width: 120px;  /* Set a minimum width for all tabs */
+    text-align: center;
+    padding: 8px 16px !important;  /* Add consistent padding */
+}
+
+.stTab[aria-selected="true"] {
+    background: linear-gradient(90deg, #FF1E1E, #FF8E53) !important;
+    color: white !important;
+    border-radius: 8px;
+}
+
+/* Make sure the tabs don't stretch too wide */
+.stTabs [role="tablist"] {
+    max-width: fit-content;
+    margin: 0 auto;
+}
+
+/* Ensure tab buttons have consistent width */
+.stTabs button[role="tab"] {
+    min-width: 200px;
+    display: inline-flex;
+    justify-content: center;
+}
+
+/* Input fields */
+.stNumberInput div {
+    background: rgba(36, 59, 85, 0.4);
+    border-radius: 8px;
+    padding: 5px;
+}
+
+.stTextInput div {
+    background: rgba(36, 59, 85, 0.4);
+    border-radius: 8px;
+    padding: 5px;
+}
+
+/* File uploader */
+.stUploader div {
+    background: rgba(36, 59, 85, 0.3);
+    border-radius: 8px;
+    padding: 10px;
+}
+
+/* DataFrame styling */
+.stDataFrame {
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(20, 30, 48, 0.4);
+    border-radius: 8px;
+    padding: 10px;
+}
+
+@keyframes border-animation {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
