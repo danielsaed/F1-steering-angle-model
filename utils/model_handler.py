@@ -88,48 +88,110 @@ def preprocess_image_exactly_like_pytorch(image_input):
         print(f"Image shape: {image_input.shape}, dtype: {image_input.dtype}")
         print(f"Min value: {np.min(image_input)}, Max value: {np.max(image_input)}")
         raise
+
 class ModelHandler:
     def __init__(self):
         # Placeholder for actual model loading
         self.current_model = None
+        self.current_model_name = None
         self.available_models = {
             "F1 Steering Angle Detection": r"models/f1-steering-angle-model.onnx",
             "Track Position Analysis": "position_model",
             "Driver Behavior Analysis": "behavior_model"
         }
         
-    def process_frames(self, frames: List[np.ndarray], model_name: str) -> Dict:
-        """Process frames through selected model"""
-        # Placeholder for actual model inference
-        # In reality, this would use a proper ML model
-
-        self.current_model = ort.InferenceSession(self.available_models[model_name])
-
-        results = []
-
-        for i, frame in enumerate(frames):
-
-            input_data = preprocess_image_exactly_like_pytorch(frame)
-            input_name = self.current_model.get_inputs()[0].name
+    def _load_model_if_needed(self, model_name: str):
+        """Load the model only if it's not already loaded or if it's different"""
+        if self.current_model is None or self.current_model_name != model_name:
+            print(f"Loading model: {model_name}")  # Debugging info
+            self.current_model = ort.InferenceSession(self.available_models[model_name])
+            self.current_model_name = model_name
         
-            # Ejecutar la inferencia
-            ort_inputs = {input_name: input_data}
-            ort_outputs = self.current_model.run(None, ort_inputs)
+    def process_frames(self, frames: List[np.ndarray], model_name: str) -> Dict:
+        """Process frames through selected model with efficient batch processing"""
+        if not frames:
+            return []
+        
+        # Load model only once
+        self._load_model_if_needed(model_name)
+        
+        # Get input name once
+        input_name = self.current_model.get_inputs()[0].name
+        
+        results = []
+        
+        # Define optimal batch size - ajusta según tu hardware
+        BATCH_SIZE = 16
+        
+        # Process frames in batches
+        for batch_start in range(0, len(frames), BATCH_SIZE):
+            # Get current batch
+            batch_end = min(batch_start + BATCH_SIZE, len(frames))
+            current_batch = frames[batch_start:batch_end]
+            batch_inputs = []
             
-            # Procesar resultado
-            predicted_angle_normalized = ort_outputs[0][0][0]
+            # Pre-process all frames in the current batch
+            for frame in current_batch:
+                try:
+                    # Procesar imagen pero mantener en formato que permita agrupación
+                    processed_input = preprocess_image_exactly_like_pytorch(frame)
+                    batch_inputs.append(processed_input)
+                except Exception as e:
+                    print(f"Error preprocessing frame: {e}")
+                    # Usar un tensor vacío del mismo tamaño como reemplazo
+                    empty_tensor = np.zeros((1, 1, 224, 224), dtype=np.float32)
+                    batch_inputs.append(empty_tensor)
             
-            # Desnormalizar el ángulo
-            angle = denormalize_angles(predicted_angle_normalized)
-
-            confidence = np.random.uniform(0.7, 0.99)
-            results.append({
-                'frame_number': i,
-                'steering_angle': angle,
-                'confidence': confidence
-            })
-
-
+            try:
+                # Combinar todos los inputs pre-procesados en un solo lote grande
+                # Cada input tiene forma [1, 1, 224, 224], los concatenamos en la dimensión 0
+                batched_input = np.vstack(batch_inputs)
+                
+                # Ejecutar inferencia sobre todo el lote a la vez
+                ort_inputs = {input_name: batched_input}
+                ort_outputs = self.current_model.run(None, ort_inputs)
+                
+                # Procesar resultados por lotes
+                for i in range(len(current_batch)):
+                    frame_idx = batch_start + i
+                    predicted_angle_normalized = ort_outputs[0][i][0]
+                    angle = denormalize_angles(predicted_angle_normalized)
+                    confidence = np.random.uniform(0.7, 0.99)
+                    
+                    results.append({
+                        'frame_number': frame_idx,
+                        'steering_angle': angle,
+                        'confidence': confidence
+                    })
+                    
+            except Exception as e:
+                print(f"Error in batch processing: {e}")
+                # Si falla el procesamiento por lotes, volver a procesar individualmente
+                for i, frame in enumerate(current_batch):
+                    frame_idx = batch_start + i
+                    try:
+                        input_data = preprocess_image_exactly_like_pytorch(frame)
+                        ort_inputs = {input_name: input_data}
+                        ort_outputs = self.current_model.run(None, ort_inputs)
+                        
+                        predicted_angle_normalized = ort_outputs[0][0][0]
+                        angle = denormalize_angles(predicted_angle_normalized)
+                        confidence = np.random.uniform(0.7, 0.99)
+                        
+                        results.append({
+                            'frame_number': frame_idx,
+                            'steering_angle': angle,
+                            'confidence': confidence
+                        })
+                    except Exception as sub_e:
+                        print(f"Error processing individual frame {frame_idx}: {sub_e}")
+                        # Añadir un resultado con valores predeterminados
+                        results.append({
+                            'frame_number': frame_idx,
+                            'steering_angle': 0.0,
+                            'confidence': 0.0
+                        })
+        
         return results
         
     def export_results(self, results: Dict) -> pd.DataFrame:
