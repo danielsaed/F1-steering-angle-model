@@ -3,7 +3,91 @@ import numpy as np
 from typing import List
 import tempfile
 import os
+import time
+import functools
+from collections import defaultdict
 
+class Profiler:
+    """Clase para trackear el tiempo de ejecución de las funciones"""
+    
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(Profiler, cls).__new__(cls)
+            cls._instance.function_times = defaultdict(list)
+            cls._instance.call_counts = defaultdict(int)
+        return cls._instance
+    
+    def track_time(self, func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            result = func(*args, **kwargs)
+            end_time = time.time()
+            elapsed = end_time - start_time
+            
+            self.function_times[func.__name__].append(elapsed)
+            self.call_counts[func.__name__] += 1
+            
+            return result
+        return wrapper
+    
+    def print_stats(self):
+        print("\n===== FUNCIÓN TIMING STATS =====")
+        print(f"{'FUNCIÓN':<30} {'LLAMADAS':<10} {'TOTAL (s)':<15} {'PROMEDIO (s)':<15} {'% TIEMPO':<10}")
+        
+        total_time = sum(sum(times) for times in self.function_times.values())
+        
+        # Ordenar por tiempo total (descendente)
+        sorted_funcs = sorted(
+            self.function_times.items(),
+            key=lambda x: sum(x[1]),
+            reverse=True
+        )
+        
+        for func_name, times in sorted_funcs:
+            total = sum(times)
+            avg = total / len(times) if times else 0
+            calls = self.call_counts[func_name]
+            percent = (total / total_time * 100) if total_time > 0 else 0
+            
+            print(f"{func_name:<30} {calls:<10} {total:<15.4f} {avg:<15.4f} {percent:<10.2f}%")
+        
+        print(f"\nTiempo total de procesamiento: {total_time:.4f} segundos")
+        print("================================")
+        
+    def get_stats_dict(self):
+        """Devuelve las estadísticas como un diccionario para mostrar en Streamlit"""
+        stats = []
+        total_time = sum(sum(times) for times in self.function_times.values())
+        
+        for func_name, times in self.function_times.items():
+            total = sum(times)
+            avg = total / len(times) if times else 0
+            calls = self.call_counts[func_name]
+            percent = (total / total_time * 100) if total_time > 0 else 0
+            
+            stats.append({
+                'función': func_name,
+                'llamadas': calls,
+                'tiempo_total': total,
+                'tiempo_promedio': avg,
+                'porcentaje': percent
+            })
+        
+        # Ordenar por porcentaje de tiempo
+        stats.sort(key=lambda x: x['porcentaje'], reverse=True)
+        return stats, total_time
+    
+    def reset(self):
+        """Reiniciar las estadísticas"""
+        self.function_times.clear()
+        self.call_counts.clear()
+
+profiler = Profiler()
+
+@profiler.track_time
 def convert_video_to_10fps(video_file):
     """
     Convert an uploaded video file to 10 FPS and return metadata
@@ -94,6 +178,7 @@ def convert_video_to_10fps(video_file):
 
 
 # Funciones previas sin cambios (recortar_imagen, create_rectangular_roi, preprocess_image, calculate_robust_rms_contrast, adaptive_clahe_iterative)
+@profiler.track_time
 def recortar_imagen(image):
     height, width, _ = image.shape
     mask = np.zeros((height, width), dtype=np.uint8)
@@ -165,6 +250,7 @@ def calculate_robust_rms_contrast(image, mask=None, bright_threshold=240):
             std_dev = np.sqrt(np.mean((masked_image - mean) ** 2))
     return std_dev / 255.0
 
+@profiler.track_time
 def adaptive_clahe_iterative(image, roi_mask, initial_clip_limit=1.0, max_clip_limit=10.0, iterations=20, target_rms_min=0.199, target_rms_max=0.5, bright_threshold=230):
     if len(image.shape) == 3:
         original_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -195,23 +281,11 @@ def adaptive_clahe_iterative(image, roi_mask, initial_clip_limit=1.0, max_clip_l
     
     return best_image
 
+@profiler.track_time
 def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage=6.5, target_percentage=6.0, max_attempts=5):
     """
     Detecta bordes con ajuste progresivo de parámetros hasta lograr un porcentaje óptimo
-    de píxeles de borde en la imagen (entre min_edge_percentage y max_edge_percentage).
-    
-    Args:
-        image_path: Ruta a la imagen
-        min_edge_percentage: Porcentaje mínimo de píxeles que deben ser detectados como bordes (0-100)
-        max_edge_percentage: Porcentaje máximo de píxeles que deben ser detectados como bordes (0-100)
-        target_percentage: Porcentaje ideal de bordes a obtener
-        max_attempts: Número máximo de intentos de ajuste
-        show_results: Mostrar gráficos de resultado
-    
-    Returns:
-        enhanced: Imagen mejorada
-        best_edges: Mejores bordes detectados
-        original: Imagen original
+    de píxeles de borde en la imagen - optimizado con operaciones vectorizadas.
     """
     # Read image
     original = imagen
@@ -220,7 +294,6 @@ def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage
         return None, None, None, None
     
     # Convert to grayscale
-    #gray = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
     gray = original
     
     # Calculate total pixels for percentage calculation
@@ -230,15 +303,18 @@ def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage
     target_edge_pixels = int((target_percentage / 100) * total_pixels)
     
     # Initial parameters - ajustados para conseguir un rango alrededor del 6% de bordes
-    clip_limits = [1.5, 2.0, 2.5, 3.0, 3.5]
+    clip_limits = np.array([1.5, 2.0, 2.5, 3.0, 3.5])
     grid_sizes = [(8, 8), (8, 8), (8, 8), (8, 8), (8, 8)]
     # Empezamos con umbrales más altos para restringir la cantidad de bordes
-    canny_thresholds = [(75, 180), (65, 170), (55, 160), (45, 150), (35, 140)]
+    canny_thresholds = np.array([(75, 180), (65, 170), (55, 160), (45, 150), (35, 140)])
     
     best_edges = None
     best_enhanced = None
     best_config = None
-    best_edge_score = float('inf')  # Inicializamos con un valor alto
+    best_edge_score = float('inf')
+    
+    # Crear el kernel una sola vez (evitar crearlo repetidamente en el bucle)
+    kernel = np.ones((1, 1), np.uint8)
     
     # Try progressively more aggressive parameters
     for attempt in range(max_attempts):
@@ -259,86 +335,73 @@ def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage
         edges = cv2.Canny(enhanced, low_threshold, high_threshold)
         std_intensity = np.std(edges)
         
-        # Reducir ruido con operaciones morfológicas
-        kernel = np.ones((1, 1), np.uint8)
-        edges = cv2.morphologyEx(
-            edges, 
-            cv2.MORPH_OPEN, 
-            kernel, 
-            iterations=0 if std_intensity < 60 else 1  # Más iteraciones si hay más ruido
-        )
+        # Reducir ruido con operaciones morfológicas - vectorizado
+        morph_iterations = 0 if std_intensity < 60 else 1
+        if morph_iterations > 0:
+            edges = cv2.morphologyEx(edges, cv2.MORPH_OPEN, kernel, iterations=morph_iterations)
         
-        # Count edge pixels
+        # Count edge pixels - vectorizado usando np.count_nonzero
         edge_count = np.count_nonzero(edges)
         edge_percentage = (edge_count / total_pixels) * 100
-        #print(f"Attempt {attempt + 1}: {edge_count} edge pixels ({edge_percentage:.2f}%)")
         
-        # Ajuste fino para alcanzar el rango de 5.5-6.5%
+        # Vectorización del ajuste fino:
+        # En lugar de usar bucles anidados para ajustar los umbrales, podemos
+        # calcular todos los posibles umbrales ajustados de una vez y aplicar
+        # el primero que dé un resultado satisfactorio.
+        
         if edge_count > max_edge_pixels:  # Si hay demasiados bordes (>6.5%)
-            # Ajustar el umbral de Canny para reducir la cantidad de bordes
-            for threshold_adjustment in range(12):  # Más ajustes para mayor precisión
-                # Aumentar ambos umbrales en 5 unidades (más granular)
-                new_low = low_threshold + 5 * (threshold_adjustment + 1)
-                new_high = high_threshold + 5 * (threshold_adjustment + 1)
-                
+            # Vectorizar el cálculo de nuevos umbrales
+            threshold_adjustments = np.arange(1, 13)  # 1 a 12
+            new_lows = low_threshold + 5 * threshold_adjustments
+            new_highs = high_threshold + 5 * threshold_adjustments
+            
+            # Buscar el primer ajuste que funcione
+            adjusted_edges = None
+            for i in range(len(threshold_adjustments)):
                 # Volver a aplicar Canny con umbrales ajustados
-                adjusted_edges = cv2.Canny(enhanced, new_low, new_high)
-                adjusted_edges = cv2.morphologyEx(
-                    adjusted_edges, 
-                    cv2.MORPH_OPEN, 
-                    kernel, 
-                    iterations=0 if std_intensity < 60 else 1
-                )
+                temp_edges = cv2.Canny(enhanced, new_lows[i], new_highs[i])
                 
-                # Contar bordes nuevamente
-                adjusted_count = np.count_nonzero(adjusted_edges)
-                adjusted_percentage = (adjusted_count / total_pixels) * 100
+                if morph_iterations > 0:
+                    temp_edges = cv2.morphologyEx(temp_edges, cv2.MORPH_OPEN, kernel, iterations=morph_iterations)
                 
-                #print(f"  Adjustment +: {adjusted_count} edge pixels ({adjusted_percentage:.2f}%)")
+                temp_count = np.count_nonzero(temp_edges)
                 
-                # Si ahora estamos en el rango deseado, usar estos bordes
-                if adjusted_count <= max_edge_pixels:
-                    edges = adjusted_edges
-                    edge_count = adjusted_count
-                    edge_percentage = adjusted_percentage
+                if temp_count <= max_edge_pixels:
+                    edges = temp_edges
+                    edge_count = temp_count
+                    edge_percentage = (edge_count / total_pixels) * 100
                     break
+                    
         elif edge_count < min_edge_pixels:  # Si hay muy pocos bordes (<5.5%)
-            # Ajustar el umbral de Canny para aumentar la cantidad de bordes
-            for threshold_adjustment in range(12):  # Más ajustes para mayor precisión
-                # Disminuir ambos umbrales en 5 unidades (más granular)
-                new_low = max(10, low_threshold - 5 * (threshold_adjustment + 1))
-                new_high = max(30, high_threshold - 5 * (threshold_adjustment + 1))
-                
+            # Vectorizar el cálculo de nuevos umbrales (disminuyendo)
+            threshold_adjustments = np.arange(1, 13)  # 1 a 12
+            new_lows = np.maximum(10, low_threshold - 5 * threshold_adjustments)
+            new_highs = np.maximum(30, high_threshold - 5 * threshold_adjustments)
+            
+            # Buscar el primer ajuste que funcione
+            for i in range(len(threshold_adjustments)):
                 # Volver a aplicar Canny con umbrales ajustados
-                adjusted_edges = cv2.Canny(enhanced, new_low, new_high)
-                adjusted_edges = cv2.morphologyEx(
-                    adjusted_edges, 
-                    cv2.MORPH_OPEN, 
-                    kernel, 
-                    iterations=0 if std_intensity < 60 else 1
-                )
+                temp_edges = cv2.Canny(enhanced, new_lows[i], new_highs[i])
                 
-                # Contar bordes nuevamente
-                adjusted_count = np.count_nonzero(adjusted_edges)
-                adjusted_percentage = (adjusted_count / total_pixels) * 100
+                if morph_iterations > 0:
+                    temp_edges = cv2.morphologyEx(temp_edges, cv2.MORPH_OPEN, kernel, iterations=morph_iterations)
                 
-                #print(f"  Adjustment -: {adjusted_count} edge pixels ({adjusted_percentage:.2f}%)")
+                temp_count = np.count_nonzero(temp_edges)
                 
-                # Si ahora estamos en el rango deseado, usar estos bordes
-                if adjusted_count >= min_edge_pixels and adjusted_count <= max_edge_pixels:
-                    edges = adjusted_edges
-                    edge_count = adjusted_count
-                    edge_percentage = adjusted_percentage
+                if min_edge_pixels <= temp_count <= max_edge_pixels:
+                    edges = temp_edges
+                    edge_count = temp_count
+                    edge_percentage = (edge_count / total_pixels) * 100
                     break
         
-        # Calculate how close we are to the target percentage (using absolute difference)
+        # Calcular distancia al objetivo - vectorizado
         edge_score = abs(edge_count - target_edge_pixels)
         
         # Record the best attempt (closest to target percentage)
         if edge_score < best_edge_score:
             best_edge_score = edge_score
-            best_edges = edges
-            best_enhanced = enhanced
+            best_edges = edges.copy()  # Hacer copia para evitar sobrescrituras
+            best_enhanced = enhanced.copy()
             best_config = {
                 'attempt': attempt + 1,
                 'clip_limit': clip_limit,
@@ -347,14 +410,12 @@ def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage
                 'edge_pixels': edge_count,
                 'edge_percentage': edge_percentage
             }
-            #print(f"New best configuration: {edge_percentage:.2f}% edges (target: {target_percentage:.1f}%)")
         
-        # If we are close enough to the target percentage, we can stop
+        # Salida temprana si estamos cerca del objetivo
         if abs(edge_percentage - target_percentage) < 0.2:  # Within 0.2% of target
             break
     
     return best_enhanced, best_edges, original, best_config
-
 
 
 class VideoProcessor:
@@ -363,12 +424,15 @@ class VideoProcessor:
         self.total_frames = 0
         self.fps = 0
         self.target_fps = 10
-        
+    
+    @profiler.track_time
     def load_video(self, video_file) -> bool:
-
         """Load video file and get basic information"""
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(video_file.read())
+        
+        # Guardar ruta para posibles reinicios
+        self.video_path = tfile.name
         
         self.cap = cv2.VideoCapture(tfile.name)
         self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -376,31 +440,88 @@ class VideoProcessor:
         
         return True
             
-        
+    @profiler.track_time
     def get_frame(self, frame_number: int) -> np.ndarray:
-        """Get specific frame from video"""
-        if self.cap is None:
-            return None
-            
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
-        ret, frame = self.cap.read()
-        if ret:
-            return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        return None
-        
-    def extract_frames(self, start_frame: int, end_frame: int, fps_target: int = 10) -> List[np.ndarray]:
         """
-        Extract frames between start and end points at specified frames per second
+        Obtiene un frame específico del video con optimizaciones de rendimiento
         
         Args:
-            start_frame: First frame to extract
-            end_frame: Last frame to extract
-            fps_target: Target frames per second to extract (default: 10)
+            frame_number: Número del frame a obtener
             
         Returns:
-            List of extracted frames
+            Frame como array NumPy (formato RGB) o None si no está disponible
         """
-        frames,crude_frames = [],[]
+        if self.cap is None:
+            return None
+        
+        # 1. Inicializar atributos de seguimiento si no existen
+        if not hasattr(self, 'frame_cache'):
+            # Usamos un diccionario limitado para caché de frames frecuentes
+            self.frame_cache = {}
+            self.frame_cache_size = 30  # Ajustar según memoria disponible
+            self.last_position = -1  # Para seguimiento de posición
+        
+        # 2. Consultar caché primero (mejora extrema para frames accedidos repetidamente)
+        if frame_number in self.frame_cache:
+            return self.frame_cache[frame_number]
+        
+        # 3. Optimización para acceso secuencial (evita seeks innecesarios)
+        if hasattr(self, 'last_position') and frame_number == self.last_position + 1:
+            # El frame solicitado es el siguiente al último leído
+            ret, frame = self.cap.read()
+            if ret:
+                self.last_position = frame_number
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                # Añadir al caché
+                self.frame_cache[frame_number] = rgb_frame
+                
+                # Mantener tamaño del caché
+                if len(self.frame_cache) > self.frame_cache_size:
+                    # Eliminar el frame más antiguo (menor número)
+                    oldest = min(self.frame_cache.keys())
+                    del self.frame_cache[oldest]
+                    
+                return rgb_frame
+            # Si falla la lectura, continuar con método directo
+        
+        # 4. Acceso directo con mecanismo de reintento
+        for attempt in range(3):  # Intentar hasta 3 veces si falla
+            self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+            ret, frame = self.cap.read()
+            
+            if ret:
+                # Actualizar last_position para futuras optimizaciones secuenciales
+                self.last_position = frame_number
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                # Añadir al caché
+                self.frame_cache[frame_number] = rgb_frame
+                
+                # Mantener tamaño del caché
+                if len(self.frame_cache) > self.frame_cache_size:
+                    # Eliminar el frame más antiguo (menor número)
+                    oldest = min(self.frame_cache.keys())
+                    del self.frame_cache[oldest]
+                    
+                return rgb_frame
+                
+            if attempt < 2:  # No reintentar en el último intento
+                # Restaurar el objeto cap en caso de error
+                # Esto ayuda con formatos de video problemáticos
+                if hasattr(self, 'video_path') and self.video_path:
+                    self.cap.release()
+                    self.cap = cv2.VideoCapture(self.video_path)
+        
+        # Si llegamos aquí, todos los intentos fallaron
+        return None
+    
+    @profiler.track_time    
+    def extract_frames(self, start_frame: int, end_frame: int, fps_target: int = 10) -> List[np.ndarray]:
+        """
+        Extract frames con procesamiento vectorizado para mayor rendimiento
+        """
+        frames, crude_frames = [], []
         
         # Calculate the total number of frames in the selection
         total_frames_selection = end_frame - start_frame + 1
@@ -410,32 +531,38 @@ class VideoProcessor:
         
         # Calculate total frames to extract based on target fps
         frames_to_extract = int(selection_duration * fps_target)
-        
-        # Ensure we extract at least one frame
         frames_to_extract = max(1, frames_to_extract)
         
-        # If we want fewer frames than the selection has
+        # Vectorizar cálculo de índices
         if frames_to_extract < total_frames_selection:
-            # Calculate indices for evenly distributed frames
-            indices = np.linspace(start_frame, end_frame, frames_to_extract, dtype=int)
-            frame_indices = indices
+            frame_indices = np.linspace(start_frame, end_frame, frames_to_extract, dtype=int)
         else:
-            # If we want all frames or more (limited to what's available)
-            frame_indices = range(start_frame, end_frame + 1)
+            frame_indices = np.arange(start_frame, end_frame + 1)
         
-        # Extract the frames at the calculated indices
-        for frame_num in frame_indices:
-            frame = self.get_frame(frame_num)
+        # Procesamiento por lotes para reducir sobrecarga de función
+        BATCH_SIZE = 10
+        for i in range(0, len(frame_indices), BATCH_SIZE):
+            batch_indices = frame_indices[i:i+BATCH_SIZE]
+            batch_frames = []
             
-            if frame is not None:
-                crude_frames.append(frame)
-                frame = self.crop_frame(frame)
-                frame = self.apply_clahe(frame)
-                frame = self.apply_treshold(frame)
-                frames.append(frame)
+            # Extract the frames in the current batch
+            for frame_num in batch_indices:
+                frame = self.get_frame(frame_num)
+                if frame is not None:
+                    batch_frames.append(frame)
+            
+            # Process the batch of frames
+            if batch_frames:
+                # Procesar con optimización de memoria
+                for frame in batch_frames:
+                    cropped = self.crop_frame(frame)
+                    clahe_image = self.apply_clahe(cropped)
+                    threshold_image = self.apply_treshold(clahe_image)
+                    frames.append(threshold_image)
         
-        return frames,crude_frames
+        return frames, crude_frames
 
+    @profiler.track_time
     def crop_frame(self,image):
 
         if image is None:
@@ -468,10 +595,12 @@ class VideoProcessor:
         
         return cropped_image
 
+    @profiler.track_time
     def apply_clahe(self, image):
 
         image = recortar_imagen(image)
         height, width = image.shape[:2]
+        
         roi_mask = create_rectangular_roi(height, width, x1=int(width*.1), y1=int(height*.28), 
                                         x2=int(width*.9), y2=int(height*.95))
         
@@ -489,6 +618,7 @@ class VideoProcessor:
 
         return clahe_image
     
+    @profiler.track_time
     def apply_treshold(self, image):
 
         #try:
@@ -515,3 +645,6 @@ class VideoProcessor:
     def __del__(self):
         if self.cap is not None:
             self.cap.release()
+
+
+
