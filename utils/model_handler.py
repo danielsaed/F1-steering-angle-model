@@ -89,6 +89,53 @@ def preprocess_image_exactly_like_pytorch(image_input):
         print(f"Min value: {np.min(image_input)}, Max value: {np.max(image_input)}")
         raise
 
+
+def correct_outlier_angles(df, window_size=5, std_threshold=3.0, max_diff_threshold=80.0):
+    
+    angles = df['steering_angle'].values
+    corrected_angles = angles.copy()
+    
+    for i in range(len(angles)):
+        if i < window_size // 2 or i >= len(angles) - window_size // 2:  # Evitar bordes
+            continue
+        
+        # Definir ventana local
+        start_idx = max(0, i - window_size // 2)
+        end_idx = min(len(angles), i + window_size // 2 + 1)
+        window = angles[start_idx:end_idx]
+        
+        # Calcular estadísticas locales incluyendo el valor actual
+        curr_angle = angles[i]
+        local_mean = np.mean(window)
+        local_std = np.std(window) if len(window) > 1 else 0
+        
+        # Calcular distancia angular mínima considerando el rango cíclico (-180° a 180°)
+        def angular_distance(a, b):
+            diff = abs(a - b)
+            return min(diff, 360 - diff) if diff > 180 else diff
+        
+        diff_from_mean = angular_distance(curr_angle, local_mean)
+        
+        # Detectar outlier
+        is_outlier = (diff_from_mean > std_threshold * local_std) or (diff_from_mean > max_diff_threshold)
+        
+        if is_outlier:
+            print(i, curr_angle, local_mean, local_std, diff_from_mean)
+            # Excluir el valor actual del cálculo del promedio de corrección
+            corrected_window = np.delete(window, i - start_idx)
+            if len(corrected_window) > 0:
+                corrected_mean = np.mean(corrected_window)
+                # Ajustar el ángulo corregido al rango cíclico más cercano
+                diff_to_corrected = angular_distance(curr_angle, corrected_mean)
+                if diff_to_corrected > 180:
+                    corrected_angles[i] = corrected_mean - 360 if corrected_mean > 0 else corrected_mean + 360
+                else:
+                    corrected_angles[i] = corrected_mean
+    
+    # Crear nuevo DataFrame
+    corrected_df = df.copy()
+    corrected_df['steering_angle'] = corrected_angles
+    return corrected_df
 class ModelHandler:
     def __init__(self):
         # Placeholder for actual model loading
@@ -197,4 +244,7 @@ class ModelHandler:
     def export_results(self, results: Dict) -> pd.DataFrame:
         """Convert results to pandas DataFrame for export"""
         df = pd.DataFrame(results)
+        for i in range(3):
+            df = correct_outlier_angles(df, window_size=15, std_threshold=1.7, max_diff_threshold=30.0)
+        
         return df
