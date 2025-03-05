@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from typing import Tuple
+import plotly.graph_objects as go
+
 
 def create_header():
     """Create the application header"""
@@ -59,3 +61,87 @@ def display_results(df: pd.DataFrame):
         mime="text/csv"
     )
     st.markdown("")
+
+def create_line_chart(df: pd.DataFrame):
+    """Create a line chart with the given DataFrame"""
+    fig = go.Figure()
+
+    # Add the main steering angle line
+    fig.add_trace(go.Scatter(
+        x=df['frame_number'], 
+        y=df['steering_angle'],
+        mode='lines',
+        name='Steering Angle',
+        line=dict(color='blue', width=3),
+        hovertemplate='<b>Frame:</b> %{x}<br><b>Angle:</b> %{y:.2f}°<extra></extra>'
+    ))
+
+    # Add reference lines for straight, full right, and full left
+    fig.add_shape(type="line",
+        x0=df['frame_number'].min(), y0=0, x1=df['frame_number'].max(), y1=0,
+        line=dict(color="red", width=2, dash="solid"),
+        name="Straight (0°)"
+    )
+
+    fig.add_shape(type="line",
+        x0=df['frame_number'].min(), y0=90, x1=df['frame_number'].max(), y1=90,
+        line=dict(color="red", width=2, dash="dash"),
+        name="Full Right (90°)"
+    )
+
+    fig.add_shape(type="line",
+        x0=df['frame_number'].min(), y0=-90, x1=df['frame_number'].max(), y1=-90,
+        line=dict(color="red", width=2, dash="dash"),
+        name="Full Left (-90°)"
+    )
+
+    # Añadir etiquetas a las líneas de referencia
+    fig.add_annotation(x=df['frame_number'].min(), y=0,
+        text="Straight (0°)",
+        showarrow=True,
+        arrowhead=1,
+        ax=-40,
+        ay=-20
+    )
+
+    fig.add_annotation(x=df['frame_number'].min(), y=90,
+        text="Full Right (90°)",
+        showarrow=True,
+        arrowhead=1,
+        ax=-40,
+        ay=-20
+    )
+
+    fig.add_annotation(x=df['frame_number'].min(), y=-90,
+        text="Full Left (-90°)",
+        showarrow=True,
+        arrowhead=1,
+        ax=-40,
+        ay=20
+    )
+
+    # Configure layout
+    fig.update_layout(
+        title="Steering Angle Over Time",
+        xaxis_title="Frame Number",
+        yaxis_title="Steering Angle (degrees)",
+        yaxis=dict(range=[-180, 180]),
+        hovermode="x unified",
+        legend_title="Legend",
+        template="plotly_white",
+        height=500,
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+
+    # Add a light gray range for "straight enough" (-10° to 10°)
+    fig.add_shape(type="rect",
+        x0=df['frame_number'].min(), y0=-10,
+        x1=df['frame_number'].max(), y1=10,
+        fillcolor="lightgray",
+        opacity=0.2,
+        layer="below",
+        line_width=0,
+    )
+
+    # Display the plot in Streamlit
+    st.plotly_chart(fig, use_container_width=True)
