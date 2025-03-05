@@ -72,7 +72,7 @@ def create_line_chart(df: pd.DataFrame):
         y=df['steering_angle'],
         mode='lines',
         name='Steering Angle',
-        line=dict(color='blue', width=3),
+        line=dict(color='white', width=1),
         hovertemplate='<b>Frame:</b> %{x}<br><b>Angle:</b> %{y:.2f}°<extra></extra>'
     ))
 
