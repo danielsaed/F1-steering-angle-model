@@ -1,0 +1,35 @@
+[theme]
+base="dark"
+primaryColor="#ffffff"
+backgroundColor="#0e0e10"
+secondaryBackgroundColor="#1d1d21"
+textColor="#ffffff"
+font="sans serif"
+
+[server]
+maxUploadSize=200
+maxMessageSize=100
+enableCORS=false
+
+[browser]
+gatherUsageStats=false
+
+[runner]
+fastRerenderEnabled=false
+magicEnabled=true
+
+[logger]
+level="warning"
+
+[client]
+toolbarMode="minimal"
+showErrorDetails=false
+
+displayEnabled=false
+
+[global]
+dataFrameSerialization="arrow"
+
+# Desactivar elementos de la interfaz de usuario
+[ui]
+hideTopBar=true  # Oculta la barra superior completa
