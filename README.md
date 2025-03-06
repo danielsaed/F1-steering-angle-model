@@ -1,15 +1,15 @@
 
 # F1 Steering Angle Model
 
-[![GitHub](https://badgen.net/badge/icon/GitHub?icon=github&label)](https://github.com/danielsaed/F1-steering-angle-predictor) 
+[![GitHub](https://badgen.net/badge/icon/GitHub?icon=github&label)](https://github.com/danielsaed/F1-steering-angle-model) 
 [![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-md.svg)](https://huggingface.co/datasets/daniel-saed/f1-steering-angle)
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://f1-machine-learning-webapp.streamlit.app/)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://f1-steering-angle.streamlit.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A machine learning application that predicts steering angles from F1 onboard camera footage.
 
 <p align="center">
-  <img src="img/web.jpg" width="60%" alt="Raw Input">
+  <img src="img/web.jpg" width="100%" alt="Raw Input">
 </p>
 
 ## About the Project
@@ -91,11 +91,11 @@ After extensive development, the model has achieved the following performance me
 ## Installation and Usage
 
 ### Prerequisites
-- Python 3.8+ 
-- OpenCV dependencies (if running locally)
+- Python 3.11 
+- requirements.txt dependencies
 
 ### Option 1: Use the Hosted Version
-The simplest way to use the application is through the [hosted Streamlit app](https://f1-machine-learning-webapp.streamlit.app/).
+The simplest way to use the application is through the [hosted Streamlit app](https://f1-steering-angle.streamlit.app/).
 
 ### Option 2: Run Locally
 
@@ -122,9 +122,6 @@ The simplest way to use the application is through the [hosted Streamlit app](ht
 
 4. **Open in browser**  
    The application will be available at http://localhost:8501
-
-
-
 
 
 
