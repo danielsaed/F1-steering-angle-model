@@ -260,9 +260,8 @@ with col2:
     
         
     with tabs[1]:  # Driver Behavior tab
-        #st.markdown("## About the model")
-        st.warning("This app does not endorse or encourage any actions that violate F1TV's Terms of Service. Downloading or recording copyrighted content without permission may result in account restrictions or legal consequences. Users are responsible for ensuring compliance with applicable policies and laws.")
-        st.info("This model is for research/educational purposes only, its not related to F1 or any organization.")
+        
+        st.info("The model is for research/educational purposes only, its not related to F1 or any organization.")
 
         st.markdown("""
         ### The Model 
