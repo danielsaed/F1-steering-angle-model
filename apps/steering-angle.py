@@ -55,7 +55,7 @@ with col2:
         st.session_state.end_frame = 1  # Default FPS target
         
     with tabs[0]:  # Steering Angle Detection tab
-        st.warning("Downloading or recording copyrighted content without permission may result in account restrictions or legal consequences. Users are responsible for ensuring compliance with applicable policies and laws within F1TV's Terms of Service.")
+        st.warning("Downloading or recording F1 onboards videos potentially violates F1/F1TV's terms of service.")
         coll1, coll2,coll3 = st.columns([12,1,8])
         with coll1:
             st.markdown("#### Step 1: Upload F1 Onboard Video ⬆️")
@@ -63,15 +63,13 @@ with col2:
             st.markdown("Recomendations to better model performance:")  
             st.markdown("- Maximun 1 lap video due to 200mb restriction, record all onboard video screen")
             st.markdown("- 1280 x 720 resolution or more, 30 FPS, 16/9 aspect ratio")
-            uploaded_file = create_upload_section()
 
-        
+            uploaded_file = create_upload_section()
 
         with coll3:
             st.markdown("<span style='margin-right: 18px;'><strong>Onboard video example:</strong></span>", unsafe_allow_html=True)
             st.markdown("( For testing, if needed )", unsafe_allow_html=True)
 
-            
             VIDEO_URL = str(Path("assets") / "demo_video.mp4")
             st.video(VIDEO_URL)
 
@@ -88,7 +86,6 @@ with col2:
                 # FPS selection dropdown - after video is loaded
                 st.markdown("<div class='glassmorphic-container'>", unsafe_allow_html=True)
 
-                # Create options at intervals of 5 FPS, plus 1 FPS option for fine-grained control
                 # Cap at the original FPS of the video
                 fps_options = [1]  # Start with 1 FPS
                 for fps in range(5, original_fps + 1, 5):
@@ -104,6 +101,10 @@ with col2:
                 else:
                     closest_fps = min(fps_options, key=lambda x: abs(x - 10))
                     default_index = fps_options.index(closest_fps)
+
+
+
+
 
                 st.markdown("#### Step 2: Select Start And End Frames ✂️")
                 # Frame selection
@@ -147,13 +148,18 @@ with col2:
                 selected_duration = selected_frames / original_fps
                 estimated_selected_frames = int(selected_duration * st.session_state.fps_target)
 
-                
-                                # Create a dropdown for FPS selection
+                # Create a dropdown for FPS selection
                 actual_fps = st.session_state.fps_target
 
                 st.markdown("")
                 st.markdown("")
                 st.markdown("")
+
+
+
+
+
+
                 st.markdown("#### Step 3: Select FPS 👈")
                 st.session_state.fps_target = st.selectbox(
                     "Select frames per second to process",
@@ -174,6 +180,12 @@ with col2:
                 st.markdown("")
                 st.markdown("")
                 st.markdown("")
+
+
+
+
+
+
                 st.markdown("#### Step 4: Execute Model 🚀")
                 if st.button("Process Video Segment") or st.session_state.get('btn', True):
 
@@ -207,6 +219,9 @@ with col2:
                     st.markdown("")
                     st.markdown("")
                     
+
+
+                    
                     st.markdown("# Results")
 
                     display_results(df)
@@ -234,23 +249,8 @@ with col2:
                         # Calculate average rate of change of steering angle
                         angle_changes = abs(df['steering_angle'].diff().dropna())
                         st.metric("Avg. Change Rate", f"{angle_changes.mean():.2f}°/frame")
+
                     st.session_state.btn = True
-
-                    # Display profiler statistics in a new section
-                    st.markdown("")
-
-                    #st.markdown("# Performance Analysis")
-                    
-                    #stats, total_time = profiler.get_stats_dict()
-                    
-
-                            # Display the tabular results
-                    
-
-                    # Create Animation section with fixed parameters
-                    st.write("")
-
-                    st.markdown("</div>", unsafe_allow_html=True)
 
 
         else:
@@ -265,7 +265,7 @@ with col2:
         st.markdown("""
         ### The Model 
         
-        In my opinion, steering inputs are a one of the key fundamental insights into driving behavior, performance and style. However,  like the full brake input, there is no public API or tool to access steering angle data. The only available source is onboard camera footage, which comes with its own limitations, such as camera position, shadows, weather conditions, and lighting. Despite these challenges, I think we can work around them to extract valuable insights.
+        Steering input is one of the key fundamental insights into driving behavior, performance and style. However, there is no straigfoward public source, tool or API to access steering angle data. The only available source is onboard camera footage, which comes with its own limitations, such as camera position, shadows, weather conditions, and lighting. Despite these challenges, I think we can work around them to extract valuable insights.
                     
         - The **F1 Steering Angle Prediction Model** is a Convolutional Neural Network (CNN) based on EfficientNet-B0 with a regression head for angles from -180° to 180° to predict steering angles from a F1 onboard camera footage ( only for current gen F1 cars ), trained with over 1500 images, check **Technical Details** for image preprocesing.
         
