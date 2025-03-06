@@ -25,7 +25,7 @@ level="warning"
 toolbarMode="minimal"
 showErrorDetails=false
 # Ocultar la barra de progreso (línea naranja)
-showSidebarNavigation=false
+
 displayEnabled=false
 
 [global]
@@ -34,4 +34,4 @@ dataFrameSerialization="arrow"
 # Desactivar elementos de la interfaz de usuario
 [ui]
 hideTopBar=true  # Oculta la barra superior completa
-hideSidebarNav=true  # Oculta la navegación de la barra lateral
+
