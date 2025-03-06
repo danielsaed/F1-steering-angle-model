@@ -29,6 +29,8 @@ def create_upload_section():
     st.markdown("</div>", unsafe_allow_html=True)
     return uploaded_file
 
+
+
 load_css()
 cont = 0
 
@@ -38,7 +40,7 @@ with col2:
     st.title("F1 Steering Angle Prediction Model")
 
     '''
-    [![Repo](https://badgen.net/badge/icon/GitHub?icon=github&label)](https://github.com/danielsaed) 
+    [![Repo](https://badgen.net/badge/icon/GitHub?icon=github&label)](https://github.com/danielsaed/F1-steering-angle-predictor) 
     [![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-md.svg)](https://huggingface.co/datasets/daniel-saed/f1-steering-angle)
     '''
     tabs = st.tabs(["Prediction", "About the model"])
@@ -68,7 +70,7 @@ with col2:
 
         with coll3:
             st.markdown("<span style='margin-right: 18px;'><strong>Onboard video example:</strong></span>", unsafe_allow_html=True)
-            st.markdown("( For testing, if needed )", unsafe_allow_html=True)
+            #st.markdown("( For testing, if needed )", unsafe_allow_html=True)
 
             VIDEO_URL = str(Path("assets") / "demo_video.mp4")
             st.video(VIDEO_URL)
@@ -298,7 +300,7 @@ with col2:
         """)
 
         '''
-        [![Repo](https://badgen.net/badge/icon/GitHub?icon=github&label)](https://github.com/danielsaed) 
+        [![Repo](https://badgen.net/badge/icon/GitHub?icon=github&label)](https://github.com/danielsaed/F1-steering-angle-predictor) 
         [![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-md.svg)](https://huggingface.co/datasets/daniel-saed/f1-steering-angle)
         '''
 
@@ -347,6 +349,5 @@ with col2:
             
         with col3:
             st.image("img/piastri-azerbaiyan_edge.jpg", caption="3. Edge Detection (Model Input)")
-        
         
         
