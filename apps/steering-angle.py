@@ -37,7 +37,7 @@ cont = 0
 col1, col2,col3 = st.columns([1,3,1])
 
 with col2:
-    st.title("F1 Steering Angle Prediction Model")
+    st.title("F1 Steering Angle Model")
 
     '''
     [![Repo](https://badgen.net/badge/icon/GitHub?icon=github&label)](https://github.com/danielsaed/F1-steering-angle-predictor) 
