@@ -100,6 +100,32 @@
     padding: 10px;
 }
 
+/* Estilo para imágenes redondeadas con sombras */
+img {
+    border-radius: 15px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+}
+
+img:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Estilo para videos redondeados con sombras */
+.stVideo {
+    border-radius: 15px !important;
+    overflow: hidden !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2) !important;
+}
+
+.stVideo > video {
+    border-radius: 15px !important;
+}
+
+
+
+
 @keyframes border-animation {
     0% {
         transform: rotate(0deg);
