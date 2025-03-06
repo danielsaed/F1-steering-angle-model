@@ -86,10 +86,9 @@ st.markdown(logo_style, unsafe_allow_html=True)
 with st.sidebar:
     st.markdown("<h3 style='text-align: center; color: #fff;'>Considerations</h3>", unsafe_allow_html=True)
     st.caption("""**Usage**:""") 
-    st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>The app will likely crash if there are too many users; If you use the app frequently I recomend to fork it and run it locally.</p>", unsafe_allow_html=True)
-    st.caption("""**Disclaimer**:""")
+    st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>The app will likely crash or will be too slow if there is high traffic; If you use the app frequently I recomend you to fork it and run it locally.</p>", unsafe_allow_html=True)
     # 
-    st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>The app was made to contribute to the F1 community, The model and preprocess may not be perfect, any feedback is welcome.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>Any feedback is welcome.</p>", unsafe_allow_html=True)
     st.markdown("", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #fff;'>Contact</h3>", unsafe_allow_html=True)
     # Nueva versión más compacta de los iconos
@@ -109,7 +108,9 @@ with st.sidebar:
     """
     
     st.markdown(contact_html, unsafe_allow_html=True)
-
+    st.write("")
+    st.write("")
+    st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>For research/educational purposes only, its not related to F1 or any organization.</p>", unsafe_allow_html=True)
 
 
 pages = st.navigation({ 
