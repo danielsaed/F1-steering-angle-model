@@ -86,7 +86,7 @@ st.markdown(logo_style, unsafe_allow_html=True)
 with st.sidebar:
     st.markdown("<h3 style='text-align: center; color: #fff;'>Considerations</h3>", unsafe_allow_html=True)
     st.caption("""**Usage**:""") 
-    st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>The app will likely crash or will be too slow if there is high traffic; If you use the app frequently I recomend you to fork it and run it locally.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>The app will likely crash or will be too slow if there is high traffic; If you use the app frequently I recomend you to fork or clone it and run it locally, it will take 3-5 min.</p>", unsafe_allow_html=True)
     # 
     st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>Any feedback is welcome.</p>", unsafe_allow_html=True)
     st.markdown("", unsafe_allow_html=True)
