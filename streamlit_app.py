@@ -115,8 +115,8 @@ with st.sidebar:
 
 pages = st.navigation({ 
     "Steering Angle Model": [
-        st.Page("apps/steering-angle.py", title="Use Model"),
-        st.Page("apps/soon.py", title="Help To Improve Model"),
+        st.Page("navigation/steering-angle.py", title="Use Model"),
+        st.Page("navigation/soon.py", title="Help To Improve Model"),
         ],})
 
 pages.run()
