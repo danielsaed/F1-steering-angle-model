@@ -7,6 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A machine learning application that predicts steering angles from F1 onboard camera footage.
+
 https://f1-steering-angle.streamlit.app/
 
 <p align="center">
