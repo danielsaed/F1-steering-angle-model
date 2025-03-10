@@ -244,7 +244,8 @@ class ModelHandler:
     def export_results(self, results: Dict) -> pd.DataFrame:
         """Convert results to pandas DataFrame for export"""
         df = pd.DataFrame(results)
-        for i in range(3):
-            df = correct_outlier_angles(df, window_size=15, std_threshold=1.7, max_diff_threshold=30.0)
+        '''for i in range(3):
+            df = correct_outlier_angles(df, window_size=15, std_threshold=1.7, max_diff_threshold=30.0)'''
+            
         
         return df
