@@ -6,3 +6,6 @@ plotly==5.18.0
 opencv-python-headless==4.8.1.78
 Pillow==10.0.0
 onnxruntime==1.15.1
+torch==2.3.0+cu121 
+torchvision==0.18.0+cu121 -f https://download.pytorch.org/whl/torch_stable.html
+ultralytics

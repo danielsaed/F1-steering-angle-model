@@ -1,4 +1,5 @@
 import streamlit as st
+import cv2
 import numpy as np
 from pathlib import Path
 import plotly.graph_objects as go
@@ -51,6 +52,8 @@ with col2:
         st.session_state.model_handler = ModelHandler()
     if 'fps_target' not in st.session_state:
         st.session_state.fps_target = 10  # Default FPS target
+    if 'driver_crop_type' not in st.session_state:
+        st.session_state.driver_crop_type = "Base"  # Default FPS target
     if 'start_frame' not in st.session_state:
         st.session_state.start_frame = 0  # Default FPS target
     if 'end_frame' not in st.session_state:
@@ -158,10 +161,6 @@ with col2:
                 st.markdown("")
 
 
-
-
-
-
                 st.markdown("#### Step 3: Select FPS 👈")
                 st.session_state.fps_target = st.selectbox(
                     "Select frames per second to process",
@@ -170,13 +169,51 @@ with col2:
                     format_func=lambda x: f"{x} FPS",
                     help="Choose how many frames per second to extract for processing"
                 )
-
                 if st.session_state.fps_target != actual_fps:
                     st.session_state.btn = False
 
-                
                 st.info(f"Selected range: {start_frame} to {end_frame} ({int(selected_duration*st.session_state.fps_target)} frames, {selected_duration:.2f} seconds). " 
                       f"At {st.session_state.fps_target} FPS")
+                
+                lst_driver_option = ('Verstappen 2025', 'Piastri 2025','Norris 2025','Leclerc 2025','Hamilton 2025','Russell 2025', 'Antonelli 2025', 'Tsunoda 2025')
+
+
+                driver_crop_type = st.session_state.driver_crop_type
+
+                st.markdown("#### Step 4: Select Crop type (IMPORTANT) 👈")
+                st.session_state.driver_crop_type = st.selectbox(
+                    "Select frames per second to process",
+                    lst_driver_option,
+                    index=0,
+                    format_func=lambda x: f"{x}",
+                    help="Choose recort for processing"
+                )
+                
+                if st.session_state.driver_crop_type != driver_crop_type:
+                    
+                    st.session_state.btn = False
+
+                
+                preview_cols1 = st.columns(2)
+                with preview_cols1[0]:
+                    start_preview1 = st.session_state.video_processor.get_frame_example(0)
+                    st.session_state.video_processor.load_crop_variables(st.session_state.driver_crop_type)
+                    
+                    start_preview1 = st.session_state.video_processor.crop_frame_example(start_preview1)
+                    
+                    if start_preview1 is not None:
+                        st.image(start_preview1, caption=f"Start Frame: {start_frame}")
+                
+                # End frame preview
+                with preview_cols1[1]:
+                    #end_preview1 = st.session_state.video_processor.get_frame(end_frame)
+                    end_preview1 = cv2.imread("img\example.png")
+                    
+                    if end_preview is not None:
+                        st.image(end_preview1, caption=f"GOAL Frame:")
+
+                
+                
 
                 # Process button
                 st.markdown("")

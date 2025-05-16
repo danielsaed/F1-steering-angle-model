@@ -136,6 +136,7 @@ def correct_outlier_angles(df, window_size=5, std_threshold=3.0, max_diff_thresh
     corrected_df = df.copy()
     corrected_df['steering_angle'] = corrected_angles
     return corrected_df
+
 class ModelHandler:
     def __init__(self):
         # Placeholder for actual model loading
@@ -169,7 +170,7 @@ class ModelHandler:
         
         # Define optimal batch size - ajusta según tu hardware
         BATCH_SIZE = 16
-        
+        index = 0
         # Process frames in batches
         for batch_start in range(0, len(frames), BATCH_SIZE):
             # Get current batch
@@ -181,6 +182,9 @@ class ModelHandler:
             for frame in current_batch:
                 try:
                     # Procesar imagen pero mantener en formato que permita agrupación
+                    
+                    #cv2.imwrite(r"img_test/"+str(index)+".jpg", frame)
+                    index= index+1
                     processed_input = preprocess_image_exactly_like_pytorch(frame)
                     batch_inputs.append(processed_input)
                 except Exception as e:
@@ -244,8 +248,11 @@ class ModelHandler:
     def export_results(self, results: Dict) -> pd.DataFrame:
         """Convert results to pandas DataFrame for export"""
         df = pd.DataFrame(results)
-        '''for i in range(3):
-            df = correct_outlier_angles(df, window_size=15, std_threshold=1.7, max_diff_threshold=30.0)'''
+        
+        df = correct_outlier_angles(df, window_size=3, std_threshold=100, max_diff_threshold=15.0)
+        df = correct_outlier_angles(df, window_size=3, std_threshold=100, max_diff_threshold=15.0)
+        df = correct_outlier_angles(df, window_size=3, std_threshold=100, max_diff_threshold=15.0)
+        df = correct_outlier_angles(df, window_size=3, std_threshold=100, max_diff_threshold=15.0)
             
         
         return df
