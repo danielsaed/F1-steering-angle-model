@@ -207,10 +207,10 @@ with col2:
                 # End frame preview
                 with preview_cols1[1]:
                     #end_preview1 = st.session_state.video_processor.get_frame(end_frame)
-                    end_preview1 = cv2.imread("img\example.png")
+                    #end_preview1 = cv2.imread("img\example.png")
                     
                     if end_preview is not None:
-                        st.image(end_preview1, caption=f"GOAL Frame:")
+                        st.image("img\example.png", caption=f"GOAL Frame:")
 
                 
                 
