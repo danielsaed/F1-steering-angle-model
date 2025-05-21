@@ -596,7 +596,7 @@ class VideoProcessor:
         self.driver_crop_type = "albon"
         self.load_crop_variables(self.driver_crop_type)
         #self.yolo_model = YOLO("models/best.pt")
-        self.model = ort.InferenceSession(r"models\best-224.onnx")
+        self.model = ort.InferenceSession("models/best-224.onnx")
         self.input_shape = (224, 224)  # Match imgsz=224 from your original code
         self.conf_thres = 0.5  # Confidence threshold
         self.iou_thres = 0.5   # IoU threshold for NMS
