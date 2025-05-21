@@ -722,7 +722,7 @@ class VideoProcessor:
         frames_to_extract = max(1, int(selection_duration * fps_target))
         frame_indices = np.linspace(start_frame, end_frame, frames_to_extract, dtype=int) if frames_to_extract < total_frames_selection else np.arange(start_frame, end_frame + 1)
 
-        BATCH_SIZE = 256
+        BATCH_SIZE = 64
 
         def process_frame(frame_data):
             frame_num, frame = frame_data
