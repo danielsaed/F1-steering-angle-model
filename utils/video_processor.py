@@ -6,8 +6,9 @@ import os
 import time
 import functools
 from collections import defaultdict
-import torch
-from ultralytics import YOLO  # Import YOLOv8 from Ultralytics
+import onnxruntime as ort
+from PIL import Image
+
 
 class Profiler:
     """Clase para trackear el tiempo de ejecución de las funciones"""
@@ -58,7 +59,7 @@ class Profiler:
         
         print(f"\nTiempo total de procesamiento: {total_time:.4f} segundos")
         print("================================")
-        
+    
     def get_stats_dict(self):
         """Devuelve las estadísticas como un diccionario para mostrar en Streamlit"""
         stats = []
@@ -90,6 +91,121 @@ class Profiler:
 profiler = Profiler()
 
 @profiler.track_time
+def preprocess_image_tensor(image_rgb: np.ndarray) -> np.ndarray:
+    """Preprocess image to match Ultralytics YOLOv8."""
+    
+    '''input = np.array(image_rgb)
+    input = input.transpose(2, 0, 1)
+    input = input.reshape(1,3,224,224).astype("float32")
+    input = input/255.0'''
+
+    input_data = image_rgb.transpose(2, 0, 1).reshape(1, 3, 224, 224)
+
+    # Convert to float32 and normalize to [0, 1]
+    input_data = input_data.astype(np.float32) / 255.0
+    
+    return input_data
+
+def postprocess_outputs(outputs: list, height: int, width: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Process ONNX model outputs for a single-class model."""
+    res_size = 56
+    output0 = outputs[0]
+    output1 = outputs[1]
+
+    output0 = output0[0].transpose()
+    output1 = output1[0]
+
+    boxes = output0[:,0:5]
+    masks = output0[:,5:]
+
+    output1 = output1.reshape(32,res_size*res_size)
+
+    masks = masks @ output1
+
+    boxes = np.hstack([boxes,masks])
+
+    yolo_classes = [
+        "helmet"
+    ]
+
+    # parse and filter all boxes
+    objects = []
+    for row in boxes:
+        xc,yc,w,h = row[:4]
+        x1 = (xc-w/2)/224*width
+        y1 = (yc-h/2)/224*height
+        x2 = (xc+w/2)/224*width
+        y2 = (yc+h/2)/224*height
+        prob = row[4:5].max()
+        if prob < 0.2:
+            continue
+        class_id = row[4:5].argmax()
+        label = yolo_classes[class_id]
+        mask = get_mask(row[5:25684], (x1,y1,x2,y2), width, height)
+        polygon = get_polygon(mask)
+        objects.append([x1,y1,x2,y2,label,prob,mask,polygon])
+
+
+
+    # apply non-maximum suppression
+    objects.sort(key=lambda x: x[5], reverse=True)
+    result = []
+    while len(objects)>0:
+        result.append(objects[0])
+        objects = [object for object in objects if iou(object,objects[0])<0.7]
+
+
+
+    return True,result
+
+def intersection(box1,box2):
+    box1_x1,box1_y1,box1_x2,box1_y2 = box1[:4]
+    box2_x1,box2_y1,box2_x2,box2_y2 = box2[:4]
+    x1 = max(box1_x1,box2_x1)
+    y1 = max(box1_y1,box2_y1)
+    x2 = min(box1_x2,box2_x2)
+    y2 = min(box1_y2,box2_y2)
+    return (x2-x1)*(y2-y1) 
+
+def union(box1,box2):
+    box1_x1,box1_y1,box1_x2,box1_y2 = box1[:4]
+    box2_x1,box2_y1,box2_x2,box2_y2 = box2[:4]
+    box1_area = (box1_x2-box1_x1)*(box1_y2-box1_y1)
+    box2_area = (box2_x2-box2_x1)*(box2_y2-box2_y1)
+    return box1_area + box2_area - intersection(box1,box2)
+
+def iou(box1,box2):
+    return intersection(box1,box2)/union(box1,box2)
+
+def sigmoid(z):
+    return 1/(1 + np.exp(-z))
+
+# parse segmentation mask
+def get_mask(row, box, img_width, img_height):
+    # convert mask to image (matrix of pixels)
+    res_size = 56
+    mask = row.reshape(res_size,res_size)
+    mask = sigmoid(mask)
+    mask = (mask > 0.2).astype("uint8")*255
+    # crop the object defined by "box" from mask
+    x1,y1,x2,y2 = box
+    mask_x1 = round(x1/img_width*res_size)
+    mask_y1 = round(y1/img_height*res_size)
+    mask_x2 = round(x2/img_width*res_size)
+    mask_y2 = round(y2/img_height*res_size)
+    mask = mask[mask_y1:mask_y2,mask_x1:mask_x2]
+    # resize the cropped mask to the size of object
+    img_mask = Image.fromarray(mask,"L")
+    img_mask = img_mask.resize((round(x2-x1),round(y2-y1)))
+    mask = np.array(img_mask)
+    return mask
+
+# calculate bounding polygon from mask
+def get_polygon(mask):
+    contours = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    polygon = [[contour[0][0],contour[0][1]] for contour in contours[0][0]]
+    return polygon
+
 def convert_video_to_10fps(video_file):
     """
     Convert an uploaded video file to 10 FPS and return metadata
@@ -178,7 +294,6 @@ def convert_video_to_10fps(video_file):
         print(f"Error converting video: {e}")
         return None
 
-
 # Funciones previas sin cambios (recortar_imagen, create_rectangular_roi, preprocess_image, calculate_robust_rms_contrast, adaptive_clahe_iterative)
 @profiler.track_time
 def recortar_imagen(image,starty_dic, axes_dic):
@@ -240,7 +355,7 @@ def calculate_black_pixels_percentage(image):
     percentage = (black_pixels / total_pixels) * 100
 
     
-    percentage = (100.00 - float(percentage)) * .07
+    percentage = (100.00 - float(percentage)) * .06
 
     
     return percentage
@@ -344,10 +459,10 @@ def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage
     target_edge_pixels = int((target_percentage / 100) * total_pixels)
     
     # Initial parameters - ajustados para conseguir un rango alrededor del 6% de bordes
-    clip_limits = [1, 2, 3, 4,5,6,7]
-    grid_sizes = [(8, 8), (8, 8), (8, 8), (8, 8), (8, 8), (16, 16), (16, 16)]
+    clip_limits = [1, 1, 1, 1, 1, 1, 1]
+    grid_sizes = [(3, 3), (3, 3), (3, 3), (3, 3), (3, 3), (3, 3), (3, 3)]
     # Empezamos con umbrales más altos para restringir la cantidad de bordes
-    canny_thresholds = [(65, 180), (45, 170), (35, 150), (25, 140), (20, 130),(20, 130),(20, 130)]
+    canny_thresholds = [(55, 170), (45, 160), (35, 150), (25, 140), (20, 130),(20, 130),(20, 130)]
     
     best_edges = None
     best_enhanced = None
@@ -379,8 +494,8 @@ def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage
         
 
         median_intensity = np.median(denoised)
-        low_threshold = max(20, (1.0 -.33) * median_intensity)
-        high_threshold = max(80, (1.0 + 0.6) * median_intensity)
+        low_threshold = max(30, (1.0 -.4) * median_intensity)
+        high_threshold = max(90, (1.0 + 0.5) * median_intensity)
         # Edge detection
         edges = cv2.Canny(denoised, low_threshold, high_threshold)
         std_intensity = np.std(edges)
@@ -469,8 +584,8 @@ def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage
         if abs(edge_percentage - target_percentage) < 0.1:  # Within 0.2% of target
             break
     
+    print(f"Mejor intento: {best_config['attempt']}, porcentaje de bordes: {edge_percentage:.2f}%")
     return best_enhanced, best_edges, original, best_config
-
 
 class VideoProcessor:
     def __init__(self):
@@ -480,7 +595,11 @@ class VideoProcessor:
         self.target_fps = 10
         self.driver_crop_type = "albon"
         self.load_crop_variables(self.driver_crop_type)
-        self.yolo_model = YOLO("models/best.pt")
+        #self.yolo_model = YOLO("models/best.pt")
+        self.model = ort.InferenceSession(r"models\best-224.onnx")
+        self.input_shape = (224, 224)  # Match imgsz=224 from your original code
+        self.conf_thres = 0.5  # Confidence threshold
+        self.iou_thres = 0.5   # IoU threshold for NMS
     
     @profiler.track_time
     def load_crop_variables(self,driver_crop_type):
@@ -840,7 +959,6 @@ class VideoProcessor:
         return None
     
     @profiler.track_time    
-    
     def mask_helmet_yolo(self, color_image: np.ndarray, helmet_height_ratio: float = 0.3, prev_mask: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
         """
         Usa YOLOv8 para segmentar el casco y lo pinta de verde.
@@ -864,7 +982,7 @@ class VideoProcessor:
             image_rgb = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
 
             # Realizar la predicción con YOLOv8
-            results = self.yolo_model(image_rgb, conf=0.2, iou=0.5,imgsz=508)  # Ajusta conf e iou según necesidad
+            results = self.yolo_model(image_rgb, conf=0.2, iou=0.5,imgsz=224)  # Ajusta conf e iou según necesidad
 
             # Inicializar máscara vacía
             mask_final = np.zeros((height, width), dtype=np.uint8)
@@ -915,7 +1033,7 @@ class VideoProcessor:
 
         # Crear una imagen verde del mismo tamaño que la imagen original
         green_color = np.zeros_like(color_image)  # Crear una imagen vacía
-        green_color[:, :] = [0, 255, 0]  # Color verde en BGR (0, 255, 0)
+        green_color[:, :] = [125, 125, 125]  # Color verde en BGR (0, 255, 0)
 
         # Aplicar la máscara para pintar solo la región del casco
         masked_green = cv2.bitwise_and(green_color, green_color, mask=mask_final)
@@ -929,6 +1047,58 @@ class VideoProcessor:
         result = cv2.add(masked_green, result_original)
 
         return result, mask_final
+    
+    def mask_helmet(self, img):
+        """Mask the helmet region using SAM and paint it green."""
+        print("Processing frame...")
+        
+        img = cv2.resize(img, (224, 224))
+        height, width = img.shape[:2]
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        outputs = self.model.run(None, {"images":preprocess_image_tensor(img)})
+        print("test")
+        flag,result = postprocess_outputs(outputs, height, width)
+
+        
+        
+
+        # Procesar los resultados de segmentación
+
+        if flag is True:
+            result_image = img.copy()
+            overlay = np.zeros_like(img, dtype=np.uint8)
+            color = (125, 125, 125, 255)  # RGBA color for the helmet
+            # Extract RGB and alpha from color
+            fill_color = color[:3]  # (R, G, B) = (125, 125, 125)
+            alpha = color[3] / 255.0  # Normalize alpha to [0, 1]
+            
+            for obj in result:
+                x1, y1, x2, y2, _, _, _, polygon = obj
+                # Translate polygon coordinates relative to (x1, y1)
+                polygon = [(round(x1 + point[0]), round(y1 + point[1])) for point in polygon]
+                # Convert polygon to format required by cv2.fillPoly
+                pts = np.array(polygon, dtype=np.int32).reshape((-1, 1, 2))
+                # Draw filled polygon on overlay
+                cv2.fillPoly(overlay, [pts], fill_color)
+            
+            # Create alpha mask for blending
+            mask = np.any(overlay != 0, axis=2).astype(np.float32)
+            alpha_mask = mask * alpha
+
+            for c in range(3):  # For each color channel
+                result_image[:, :, c] = (1 - alpha_mask) * result_image[:, :, c] + alpha_mask * overlay[:, :, c]
+
+            return result_image
+        else:
+            # Si no se detecta casco, devolver la imagen sin cambios y máscara vacía
+            print("No helmet detected in this frame.")
+            return img
+
+
+
+        
+        
 
     def extract_frames(self, start_frame: int, end_frame: int, fps_target: int = 10) -> List[np.ndarray]:
         """
@@ -951,14 +1121,15 @@ class VideoProcessor:
             frame_indices = np.linspace(start_frame, end_frame, frames_to_extract, dtype=int)
         else:
             frame_indices = np.arange(start_frame, end_frame + 1)
-
+        counter = 0
         # Procesamiento por lotes para reducir sobrecarga de función
-        BATCH_SIZE = 50
+        BATCH_SIZE =150
         last_mask = None  # Almacenar la última máscara generada
 
         for i in range(0, len(frame_indices), BATCH_SIZE):
             batch_indices = frame_indices[i:i+BATCH_SIZE]
             batch_frames = []
+            
 
             # Extract the frames in the current batch
             for frame_num in batch_indices:
@@ -973,10 +1144,10 @@ class VideoProcessor:
 
                     # Actualizar la máscara cada 3 frames
                     #if idx % 3 == 0 or last_mask is None:
-                    result, last_mask = self.mask_helmet_yolo(
+                    '''result, last_mask = self.mask_helmet_yolo(
                         cropped,
                         helmet_height_ratio=self.helmet_height_ratio
-                    )
+                    )'''
                     '''else:
                         # Reutilizar la última máscara
                         result, _ = self.mask_helmet_yolo(
@@ -984,17 +1155,19 @@ class VideoProcessor:
                             helmet_height_ratio=self.helmet_height_ratio,
                             prev_mask=last_mask
                         )'''
+                    result = self.mask_helmet(cropped)
 
                     clahe_image = self.apply_clahe(result)
+                    #cv2.imwrite(f"img_test1/{str(i)}.png", clahe_image)
                     threshold_image = self.apply_treshold(clahe_image)
                     frames.append(threshold_image)
 
         return frames, crude_frames
 
-
     @profiler.track_time
     def crop_frame(self,image):
 
+         
         if image is None:
             print(f"Error loading")
             return None
@@ -1025,7 +1198,9 @@ class VideoProcessor:
 
         # Crop the image: bottom half in height and new_width in horizontal dimension
         cropped_image = image[y_start:y_start+crop_height, x_start:x_end]
+
         
+        print(cropped_image.shape)
         return cropped_image
     
     def crop_frame_example(self,image):
@@ -1076,17 +1251,19 @@ class VideoProcessor:
                                         x2=int(width*.9), y2=int(height*.95))
         
         # Aplicar CLAHE
-        clahe_image = adaptive_clahe_iterative(
+        '''clahe_image = adaptive_clahe_iterative(
             image,
             roi_mask,
-            initial_clip_limit=2.0,
-            max_clip_limit=5.0,
-            iterations=4,
+            initial_clip_limit=3.0,
+            max_clip_limit=7.0,
+            iterations=5,
             target_rms_min=0.18,
             target_rms_max=0.2,
             bright_threshold=200
-        )
+        )'''
 
+        clahe_image = cv2.createCLAHE(clipLimit=10, tileGridSize=(3, 3)).apply(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
+        #clahe_image = cv2.equalizeHist(image)
         return clahe_image
     
     @profiler.track_time
@@ -1114,17 +1291,14 @@ class VideoProcessor:
         # Save the edge image
         if edges is not None:
             edges = recortar_imagen_again(edges,self.starty, self.axes)
+            #edges = cv2.resize(edges,(224, 224))
             return edges
             
         '''except Exception as e:
             print(f"Error processing")
             return None'''
-            
-
-        
+    
     def __del__(self):
         if self.cap is not None:
             self.cap.release()
-
-
 
