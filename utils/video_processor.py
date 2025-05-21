@@ -313,9 +313,9 @@ class VideoProcessor:
         self.helmet_height_ratio = driver_config[self.driver_crop_type]["helmet_height_ratio"] if "helmet_height_ratio" in driver_config[self.driver_crop_type] else 0.5
 
     @profiler.track_time
-    def load_video1(self, video_file) -> bool:
+    def load_video(self, video_file) -> bool:
         """Load video file and get basic information"""
-        tfile = tempfile.NamedTemporaryFile(delete=False)
+        tfile = tempfile.NamedTemporaryFile(delete=True)
         tfile.write(video_file.read())
         
         # Guardar ruta para posibles reinicios
@@ -327,7 +327,7 @@ class VideoProcessor:
         
         return True
     
-    def load_video(self, video_file) -> bool:
+    def load_video1(self, video_file) -> bool:
         """Load video file and get basic information"""
         with tempfile.TemporaryFile(suffix='.mp4') as tfile:
             tfile.write(video_file.read())
