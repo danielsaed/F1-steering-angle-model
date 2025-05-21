@@ -2,13 +2,22 @@ import cv2
 import numpy as np
 from typing import List, Tuple
 import tempfile
-import os
 import time
 import functools
 from collections import defaultdict
 import onnxruntime as ort
-from PIL import Image
+from utils.model_handler import ModelHandler
+from utils.helper import (
+    preprocess_image_tensor,
+    postprocess_outputs,
+    recortar_imagen,
+    recortar_imagen_again,
+    calculate_black_pixels_percentage,
+    adaptive_edge_detection,
 
+    )
+from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 
 class Profiler:
     """Clase para trackear el tiempo de ejecución de las funciones"""
@@ -90,502 +99,6 @@ class Profiler:
 
 profiler = Profiler()
 
-@profiler.track_time
-def preprocess_image_tensor(image_rgb: np.ndarray) -> np.ndarray:
-    """Preprocess image to match Ultralytics YOLOv8."""
-    
-    '''input = np.array(image_rgb)
-    input = input.transpose(2, 0, 1)
-    input = input.reshape(1,3,224,224).astype("float32")
-    input = input/255.0'''
-
-    input_data = image_rgb.transpose(2, 0, 1).reshape(1, 3, 224, 224)
-
-    # Convert to float32 and normalize to [0, 1]
-    input_data = input_data.astype(np.float32) / 255.0
-    
-    return input_data
-
-def postprocess_outputs(outputs: list, height: int, width: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Process ONNX model outputs for a single-class model."""
-    res_size = 56
-    output0 = outputs[0]
-    output1 = outputs[1]
-
-    output0 = output0[0].transpose()
-    output1 = output1[0]
-
-    boxes = output0[:,0:5]
-    masks = output0[:,5:]
-
-    output1 = output1.reshape(32,res_size*res_size)
-
-    masks = masks @ output1
-
-    boxes = np.hstack([boxes,masks])
-
-    yolo_classes = [
-        "helmet"
-    ]
-
-    # parse and filter all boxes
-    objects = []
-    for row in boxes:
-        xc,yc,w,h = row[:4]
-        x1 = (xc-w/2)/224*width
-        y1 = (yc-h/2)/224*height
-        x2 = (xc+w/2)/224*width
-        y2 = (yc+h/2)/224*height
-        prob = row[4:5].max()
-        if prob < 0.2:
-            continue
-        class_id = row[4:5].argmax()
-        label = yolo_classes[class_id]
-        mask = get_mask(row[5:25684], (x1,y1,x2,y2), width, height)
-        polygon = get_polygon(mask)
-        objects.append([x1,y1,x2,y2,label,prob,mask,polygon])
-
-
-
-    # apply non-maximum suppression
-    objects.sort(key=lambda x: x[5], reverse=True)
-    result = []
-    while len(objects)>0:
-        result.append(objects[0])
-        objects = [object for object in objects if iou(object,objects[0])<0.7]
-
-
-
-    return True,result
-
-def intersection(box1,box2):
-    box1_x1,box1_y1,box1_x2,box1_y2 = box1[:4]
-    box2_x1,box2_y1,box2_x2,box2_y2 = box2[:4]
-    x1 = max(box1_x1,box2_x1)
-    y1 = max(box1_y1,box2_y1)
-    x2 = min(box1_x2,box2_x2)
-    y2 = min(box1_y2,box2_y2)
-    return (x2-x1)*(y2-y1) 
-
-def union(box1,box2):
-    box1_x1,box1_y1,box1_x2,box1_y2 = box1[:4]
-    box2_x1,box2_y1,box2_x2,box2_y2 = box2[:4]
-    box1_area = (box1_x2-box1_x1)*(box1_y2-box1_y1)
-    box2_area = (box2_x2-box2_x1)*(box2_y2-box2_y1)
-    return box1_area + box2_area - intersection(box1,box2)
-
-def iou(box1,box2):
-    return intersection(box1,box2)/union(box1,box2)
-
-def sigmoid(z):
-    return 1/(1 + np.exp(-z))
-
-# parse segmentation mask
-def get_mask(row, box, img_width, img_height):
-    # convert mask to image (matrix of pixels)
-    res_size = 56
-    mask = row.reshape(res_size,res_size)
-    mask = sigmoid(mask)
-    mask = (mask > 0.2).astype("uint8")*255
-    # crop the object defined by "box" from mask
-    x1,y1,x2,y2 = box
-    mask_x1 = round(x1/img_width*res_size)
-    mask_y1 = round(y1/img_height*res_size)
-    mask_x2 = round(x2/img_width*res_size)
-    mask_y2 = round(y2/img_height*res_size)
-    mask = mask[mask_y1:mask_y2,mask_x1:mask_x2]
-    # resize the cropped mask to the size of object
-    img_mask = Image.fromarray(mask,"L")
-    img_mask = img_mask.resize((round(x2-x1),round(y2-y1)))
-    mask = np.array(img_mask)
-    return mask
-
-# calculate bounding polygon from mask
-def get_polygon(mask):
-    contours = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    polygon = [[contour[0][0],contour[0][1]] for contour in contours[0][0]]
-    return polygon
-
-def convert_video_to_10fps(video_file):
-    """
-    Convert an uploaded video file to 10 FPS and return metadata
-    
-    Args:
-        video_file: Streamlit uploaded file object
-        
-    Returns:
-        Dictionary with video metadata and path to converted file
-    """
-    try:
-        # Create temporary file for the original upload
-        orig_tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
-        orig_tfile.write(video_file.read())
-        orig_tfile.close()
-        
-        # Open the original video to get properties
-        orig_cap = cv2.VideoCapture(orig_tfile.name)
-        
-        if not orig_cap.isOpened():
-            return {"success": False, "error": "Could not open video file"}
-            
-        orig_fps = orig_cap.get(cv2.CAP_PROP_FPS)
-        width = int(orig_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(orig_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        orig_total_frames = int(orig_cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        
-        # Calculate duration
-        duration_seconds = orig_total_frames / orig_fps
-        expected_frames = int(duration_seconds * 10)  # 10 fps
-        
-        # Create output temp file
-        converted_path = tempfile.mktemp(suffix='.mp4')
-        
-        # Create VideoWriter
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(converted_path, fourcc, 10, (width, height))
-        
-        # Calculate frame sampling
-        if orig_fps <= 10:
-            # If original is slower than target, duplicate frames
-            step = 1
-            duplication = int(10 / orig_fps)
-        else:
-            # If original is faster, skip frames
-            step = orig_fps / 10
-            duplication = 1
-            
-        # Convert the video
-        frame_count = 0
-        output_count = 0
-        
-        while orig_cap.isOpened():
-            ret, frame = orig_cap.read()
-            if not ret:
-                break
-                
-            # Determine if we should include this frame
-            if frame_count % step < 1:  # Using modulo < 1 for floating point step values
-                # Write frame (possibly multiple times)
-                for _ in range(duplication):
-                    out.write(frame)
-                    output_count += 1
-                    
-            frame_count += 1
-            
-        # Release resources
-        orig_cap.release()
-        out.release()
-        os.unlink(orig_tfile.name)  # Delete original temp file
-        
-        # Instead of returning a dictionary, read the file back into memory
-        with open(converted_path, "rb") as f:
-            video_data = f.read()
-        
-        # Clean up the temporary file
-        os.unlink(converted_path)
-        
-        # Return a file-like object
-        from io import BytesIO
-        video_io = BytesIO(video_data)
-        video_io.name = "converted_10fps.mp4"
-        return video_io
-        
-    except Exception as e:
-        print(f"Error converting video: {e}")
-        return None
-
-# Funciones previas sin cambios (recortar_imagen, create_rectangular_roi, preprocess_image, calculate_robust_rms_contrast, adaptive_clahe_iterative)
-@profiler.track_time
-def recortar_imagen(image,starty_dic, axes_dic):
-    height, width, _ = image.shape
-    mask = np.zeros((height, width), dtype=np.uint8)
-    start_y = int((starty_dic-.02) * height)
-    cv2.rectangle(mask, (0, start_y), (width, height), 255, -1)
-    center = (width // 2, start_y)
-    axes = (width // 2, int(axes_dic * height))
-    cv2.ellipse(mask, center, axes, 0, 180, 360, 255, -1)
-    result = cv2.bitwise_and(image, image, mask=mask)
-    return result
-
-def recortar_imagen_again(image,starty_dic, axes_dic):
-    
-    try:
-        height, width,_ = image.shape
-    except :
-        height, width = image.shape
-
-    mask = np.zeros((height, width), dtype=np.uint8)
-
-    start_y = int(starty_dic * height)
-    cv2.rectangle(mask, (0, start_y), (width, height), 255, -1)
-    center = (width // 2, start_y)
-    axes = (width // 2, int(axes_dic * height))
-    cv2.ellipse(mask, center, axes, 0, 180, 360, 255, -1)
-    result = cv2.bitwise_and(image, image, mask=mask)
-    return result
-
-def calculate_black_pixels_percentage(image):
-    """
-    Calcula el porcentaje de píxeles totalmente negros en la imagen.
-    
-    Args:
-        image: Imagen cargada con cv2 (BGR o escala de grises).
-        is_grayscale: True si la imagen ya está en escala de gruises, False si es a color.
-    
-    Returns:
-        float: Porcentaje de píxeles negros.
-    """
-    # Obtener dimensiones
-    '''image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)'''
-    if image is None:
-        print(f"Error loading image")
-        return 0
-    
-    if len(image.shape) == 3:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    else:
-        image = image.copy()
-    h, w = image.shape[:2]
-    total_pixels = h * w
-    
-    black_pixels = np.sum(image < 10)
-
-    # Calcular porcentaje
-    percentage = (black_pixels / total_pixels) * 100
-
-    
-    percentage = (100.00 - float(percentage)) * .06
-
-    
-    return percentage
-
-def create_rectangular_roi(height, width, x1=0, y1=0, x2=None, y2=None):
-    if x2 is None:
-        x2 = width
-    if y2 is None:
-        y2 = height
-    mask = np.zeros((height, width), dtype=np.uint8)
-    cv2.rectangle(mask, (x1, y1), (x2, y2), 255, -1)
-    return mask
-
-def preprocess_image(image, mask=None):
-    if len(image.shape) == 3:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    else:
-        gray = image.copy()
-    
-    denoised = cv2.bilateralFilter(gray, d=3, sigmaColor=20, sigmaSpace=10)
-    sharpened = cv2.addWeighted(denoised, 3.0, denoised, -2.0, 0)
-    normalized = cv2.normalize(sharpened, None, 0, 255, cv2.NORM_MINMAX)
-    
-    if mask is not None:
-        return cv2.bitwise_and(normalized, normalized, mask=mask)
-    return normalized
-
-def calculate_robust_rms_contrast(image, mask=None, bright_threshold=240):
-    if len(image.shape) == 3:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    if mask is not None:
-        masked_image = image[mask > 0]
-    else:
-        masked_image = image.ravel()
-    
-    if len(masked_image) == 0:
-        mean = np.mean(image)
-        std_dev = np.sqrt(np.mean((image - mean) ** 2))
-    else:
-        mask_bright = masked_image < bright_threshold
-        masked_image = masked_image[mask_bright]
-        if len(masked_image) == 0:
-            mean = np.mean(image)
-            std_dev = np.sqrt(np.mean((image - mean) ** 2))
-        else:
-            mean = np.mean(masked_image)
-            std_dev = np.sqrt(np.mean((masked_image - mean) ** 2))
-    return std_dev / 255.0
-
-@profiler.track_time
-def adaptive_clahe_iterative(image, roi_mask, initial_clip_limit=1.0, max_clip_limit=10.0, iterations=20, target_rms_min=0.199, target_rms_max=0.5, bright_threshold=230):
-    if len(image.shape) == 3:
-        original_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    else:
-        original_gray = image.copy()
-    
-    #preprocessed_image = preprocess_image(original_gray)
-    
-    best_image = original_gray.copy()
-    best_rms = calculate_robust_rms_contrast(original_gray, roi_mask, bright_threshold)
-    clip_limit = initial_clip_limit
-    
-    for i in range(iterations):
-        clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(8, 8))
-        current_image = clahe.apply(original_gray)
-        
-        rms_contrast = calculate_robust_rms_contrast(current_image, roi_mask, bright_threshold)
-        
-        if target_rms_min <= rms_contrast <= target_rms_max:
-            return current_image   
-        if rms_contrast > best_rms:
-            best_rms = rms_contrast
-            best_image = current_image.copy()
-        if rms_contrast > target_rms_max:
-            clip_limit = min(clip_limit, 1.0)
-        else:
-            clip_limit = min(initial_clip_limit + (i * 0.5), max_clip_limit)
-    
-    return best_image
-
-@profiler.track_time
-def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage=6.5, target_percentage=6.0, max_attempts=5):
-    """
-    Detecta bordes con ajuste progresivo de parámetros hasta lograr un porcentaje óptimo
-    de píxeles de borde en la imagen - optimizado con operaciones vectorizadas.
-    """
-    # Read image
-    original = imagen
-    if original is None:
-        print(f"Error loading image")
-        return None, None, None, None
-    
-    # Convert to grayscale
-    gray = original
-    
-    # Calculate total pixels for percentage calculation
-    total_pixels = gray.shape[0] * gray.shape[1]
-    min_edge_pixels = int((min_edge_percentage / 100) * total_pixels)
-    max_edge_pixels = int((max_edge_percentage / 100) * total_pixels)
-    target_edge_pixels = int((target_percentage / 100) * total_pixels)
-    
-    # Initial parameters - ajustados para conseguir un rango alrededor del 6% de bordes
-    clip_limits = [1, 1, 1, 1, 1, 1, 1]
-    grid_sizes = [(3, 3), (3, 3), (3, 3), (3, 3), (3, 3), (3, 3), (3, 3)]
-    # Empezamos con umbrales más altos para restringir la cantidad de bordes
-    canny_thresholds = [(55, 170), (45, 160), (35, 150), (25, 140), (20, 130),(20, 130),(20, 130)]
-    
-    best_edges = None
-    best_enhanced = None
-    best_config = None
-    best_edge_score = float('inf')  # Inicializamos con un valor alto
-    edge_percentage = 0
-
-    
-    # Try progressively more aggressive parameters
-    for attempt in range(max_attempts):
-        # Get parameters for this attempt
-        clip_limit = clip_limits[attempt]
-        grid_size = grid_sizes[attempt]
-        low_threshold, high_threshold = canny_thresholds[attempt]
-        
-        if edge_percentage <= max_edge_percentage:
-            clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=grid_size)
-        elif edge_count > max_edge_percentage:
-            # Si hay demasiados bordes, aplicamos un CLAHE más fuerte
-            clahe = cv2.createCLAHE(clipLimit=1, tileGridSize=grid_size)
-        
-        enhanced = clahe.apply(gray)
-
-        denoised = cv2.bilateralFilter(enhanced, d=5, sigmaColor=200, sigmaSpace=200)
-        #print("denoised shape:", denoised.shape, "dtype:", denoised.dtype)
-        # Apply noise reduction for higher attempts
-        '''if attempt >= 2:
-            enhanced = cv2.bilateralFilter(enhanced, 5, 100, 100)'''
-        
-
-        median_intensity = np.median(denoised)
-        low_threshold = max(30, (1.0 -.4) * median_intensity)
-        high_threshold = max(90, (1.0 + 0.5) * median_intensity)
-        # Edge detection
-        edges = cv2.Canny(denoised, low_threshold, high_threshold)
-        std_intensity = np.std(edges)
-        
-        # Reducir ruido con operaciones morfológicas - vectorizado
-        kernel = np.ones((1, 1), np.uint8)
-        edges = cv2.morphologyEx(
-            edges, 
-            cv2.MORPH_OPEN, 
-            kernel, 
-            iterations=0 if std_intensity < 60 else 1  # Más iteraciones si hay más ruido
-        )
-        
-        # Count edge pixels - vectorizado usando np.count_nonzero
-        edge_count = np.count_nonzero(edges)
-        edge_percentage = (edge_count / total_pixels) * 100
-        
-        # Vectorización del ajuste fino:
-        # En lugar de usar bucles anidados para ajustar los umbrales, podemos
-        # calcular todos los posibles umbrales ajustados de una vez y aplicar
-        # el primero que dé un resultado satisfactorio.
-        
-        '''if edge_count > max_edge_pixels:  # Si hay demasiados bordes (>6.5%)
-            # Vectorizar el cálculo de nuevos umbrales
-            threshold_adjustments = np.arange(1, 13)  # 1 a 12
-            new_lows = low_threshold + 5 * threshold_adjustments
-            new_highs = high_threshold + 5 * threshold_adjustments
-            
-            # Buscar el primer ajuste que funcione
-            adjusted_edges = None
-            for i in range(len(threshold_adjustments)):
-                # Volver a aplicar Canny con umbrales ajustados
-                temp_edges = cv2.Canny(enhanced, new_lows[i], new_highs[i])
-                
-                if morph_iterations > 0:
-                    temp_edges = cv2.morphologyEx(temp_edges, cv2.MORPH_OPEN, kernel, iterations=morph_iterations)
-                
-                temp_count = np.count_nonzero(temp_edges)
-                
-                if temp_count <= max_edge_pixels:
-                    edges = temp_edges
-                    edge_count = temp_count
-                    edge_percentage = (edge_count / total_pixels) * 100
-                    break
-                    
-        elif edge_count < min_edge_pixels:  # Si hay muy pocos bordes (<5.5%)
-            # Vectorizar el cálculo de nuevos umbrales (disminuyendo)
-            threshold_adjustments = np.arange(1, 13)  # 1 a 12
-            new_lows = np.maximum(10, low_threshold - 5 * threshold_adjustments)
-            new_highs = np.maximum(30, high_threshold - 5 * threshold_adjustments)
-            
-            # Buscar el primer ajuste que funcione
-            for i in range(len(threshold_adjustments)):
-                # Volver a aplicar Canny con umbrales ajustados
-                temp_edges = cv2.Canny(enhanced, new_lows[i], new_highs[i])
-                
-                if morph_iterations > 0:
-                    temp_edges = cv2.morphologyEx(temp_edges, cv2.MORPH_OPEN, kernel, iterations=morph_iterations)
-                
-                temp_count = np.count_nonzero(temp_edges)
-                
-                if min_edge_pixels <= temp_count <= max_edge_pixels:
-                    edges = temp_edges
-                    edge_count = temp_count
-                    edge_percentage = (edge_count / total_pixels) * 100
-                    break
-        '''
-        # Calcular distancia al objetivo - vectorizado
-        edge_score = abs(edge_count - target_edge_pixels)
-        
-        # Record the best attempt (closest to target percentage)
-        if edge_score < best_edge_score:
-            best_edge_score = edge_score
-            best_edges = edges.copy()  # Hacer copia para evitar sobrescrituras
-            best_enhanced = enhanced.copy()
-            best_config = {
-                'attempt': attempt + 1,
-                'clip_limit': clip_limit,
-                'grid_size': grid_size,
-                'canny_thresholds': (low_threshold, high_threshold),
-                'edge_pixels': edge_count,
-                'edge_percentage': edge_percentage
-            }
-        
-        # Salida temprana si estamos cerca del objetivo
-        if abs(edge_percentage - target_percentage) < 0.1:  # Within 0.2% of target
-            break
-    
-    print(f"Mejor intento: {best_config['attempt']}, porcentaje de bordes: {edge_percentage:.2f}%")
-    return best_enhanced, best_edges, original, best_config
 
 class VideoProcessor:
     def __init__(self):
@@ -600,7 +113,16 @@ class VideoProcessor:
         self.input_shape = (224, 224)  # Match imgsz=224 from your original code
         self.conf_thres = 0.5  # Confidence threshold
         self.iou_thres = 0.5   # IoU threshold for NMS
+
+
+        self.frame_cache = OrderedDict()
+        self.frame_cache_size = 50  # Reduced size to conserve memory
+        self.last_position = -1
     
+    def clear_cache(self):
+        """Clear the frame cache to free memory."""
+        self.frame_cache.clear()
+
     @profiler.track_time
     def load_crop_variables(self,driver_crop_type):
         """
@@ -791,7 +313,7 @@ class VideoProcessor:
         self.helmet_height_ratio = driver_config[self.driver_crop_type]["helmet_height_ratio"] if "helmet_height_ratio" in driver_config[self.driver_crop_type] else 0.5
 
     @profiler.track_time
-    def load_video(self, video_file) -> bool:
+    def load_video1(self, video_file) -> bool:
         """Load video file and get basic information"""
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(video_file.read())
@@ -804,9 +326,22 @@ class VideoProcessor:
         self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
         
         return True
+    
+    def load_video(self, video_file) -> bool:
+        """Load video file and get basic information"""
+        with tempfile.TemporaryFile(suffix='.mp4') as tfile:
+            tfile.write(video_file.read())
+            tfile.seek(0)
+            self.video_path = tfile.name  # Store for reference
+            self.cap = cv2.VideoCapture(tfile.name)
+            if not self.cap.isOpened():
+                return False
+            self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
+            return True
             
     @profiler.track_time
-    def get_frame(self, frame_number: int) -> np.ndarray:
+    def get_frame1(self, frame_number: int) -> np.ndarray:
         """
         Obtiene un frame específico del video con optimizaciones de rendimiento
         
@@ -880,6 +415,38 @@ class VideoProcessor:
                     self.cap = cv2.VideoCapture(self.video_path)
         
         # Si llegamos aquí, todos los intentos fallaron
+        return None
+    
+    def get_frame(self, frame_number: int) -> np.ndarray:
+        if self.cap is None:
+            return None
+
+        if frame_number in self.frame_cache:
+            return self.frame_cache[frame_number]
+
+        if hasattr(self, 'last_position') and frame_number == self.last_position + 1:
+            ret, frame = self.cap.read()
+            if ret:
+                self.last_position = frame_number
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                self.frame_cache[frame_number] = rgb_frame
+                if len(self.frame_cache) > self.frame_cache_size:
+                    self.frame_cache.popitem(last=False)  # Remove oldest item
+                return rgb_frame
+
+        for attempt in range(3):
+            self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+            ret, frame = self.cap.read()
+            if ret:
+                self.last_position = frame_number
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                self.frame_cache[frame_number] = rgb_frame
+                if len(self.frame_cache) > self.frame_cache_size:
+                    self.frame_cache.popitem(last=False)
+                return rgb_frame
+            if attempt < 2 and hasattr(self, 'video_path') and self.video_path:
+                self.cap.release()
+                self.cap = cv2.VideoCapture(self.video_path)
         return None
     
     def get_frame_example(self, frame_number: int) -> np.ndarray:
@@ -1095,12 +662,7 @@ class VideoProcessor:
             print("No helmet detected in this frame.")
             return img
 
-
-
-        
-        
-
-    def extract_frames(self, start_frame: int, end_frame: int, fps_target: int = 10) -> List[np.ndarray]:
+    def extract_frames1(self, start_frame: int, end_frame: int, fps_target: int = 10) -> List[np.ndarray]:
         """
         Extract frames con procesamiento vectorizado para mayor rendimiento, actualizando la máscara cada 10 frames.
         """
@@ -1142,27 +704,45 @@ class VideoProcessor:
                 for idx, (frame_num, frame) in enumerate(batch_frames):
                     cropped = self.crop_frame(frame)
 
-                    # Actualizar la máscara cada 3 frames
-                    #if idx % 3 == 0 or last_mask is None:
-                    '''result, last_mask = self.mask_helmet_yolo(
-                        cropped,
-                        helmet_height_ratio=self.helmet_height_ratio
-                    )'''
-                    '''else:
-                        # Reutilizar la última máscara
-                        result, _ = self.mask_helmet_yolo(
-                            cropped,
-                            helmet_height_ratio=self.helmet_height_ratio,
-                            prev_mask=last_mask
-                        )'''
                     result = self.mask_helmet(cropped)
 
                     clahe_image = self.apply_clahe(result)
-                    #cv2.imwrite(f"img_test1/{str(i)}.png", clahe_image)
+
                     threshold_image = self.apply_treshold(clahe_image)
+
                     frames.append(threshold_image)
 
         return frames, crude_frames
+
+    def extract_frames(self, start_frame: int, end_frame: int, fps_target: int = 10) -> List[np.ndarray]:
+        frames, crude_frames = [], []
+
+        total_frames_selection = end_frame - start_frame + 1
+        selection_duration = total_frames_selection / self.fps
+        frames_to_extract = max(1, int(selection_duration * fps_target))
+        frame_indices = np.linspace(start_frame, end_frame, frames_to_extract, dtype=int) if frames_to_extract < total_frames_selection else np.arange(start_frame, end_frame + 1)
+
+        BATCH_SIZE = 256
+
+        def process_frame(frame_data):
+            frame_num, frame = frame_data
+            if frame is None:
+                return None
+            cropped = self.crop_frame(frame)
+            result = self.mask_helmet(cropped)
+            clahe_image = self.apply_clahe(result)
+            threshold_image = self.apply_treshold(clahe_image)
+            return threshold_image
+
+        for i in range(0, len(frame_indices), BATCH_SIZE):
+            batch_indices = frame_indices[i:i+BATCH_SIZE]
+            batch_frames = [(idx, self.get_frame(idx)) for idx in batch_indices]
+            with ThreadPoolExecutor(max_workers=2) as executor:  # Adjust max_workers based on CPU cores
+                batch_results = list(executor.map(process_frame, [f for f in batch_frames if f[1] is not None]))
+            frames.extend([r for r in batch_results if r is not None])
+
+        return frames, crude_frames
+
 
     @profiler.track_time
     def crop_frame(self,image):
@@ -1245,23 +825,6 @@ class VideoProcessor:
 
         image = recortar_imagen(image,self.starty, self.axes)
         
-        height, width = image.shape[:2]
-        
-        roi_mask = create_rectangular_roi(height, width, x1=int(width*.1), y1=int(height*.28), 
-                                        x2=int(width*.9), y2=int(height*.95))
-        
-        # Aplicar CLAHE
-        '''clahe_image = adaptive_clahe_iterative(
-            image,
-            roi_mask,
-            initial_clip_limit=3.0,
-            max_clip_limit=7.0,
-            iterations=5,
-            target_rms_min=0.18,
-            target_rms_max=0.2,
-            bright_threshold=200
-        )'''
-
         clahe_image = cv2.createCLAHE(clipLimit=10, tileGridSize=(3, 3)).apply(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
         #clahe_image = cv2.equalizeHist(image)
         return clahe_image
@@ -1284,21 +847,17 @@ class VideoProcessor:
             min_edge_percentage=percentage,
             max_edge_percentage=percentage,
             target_percentage=percentage,
-            max_attempts=7
+            max_attempts=1
         )
-        
         
         # Save the edge image
         if edges is not None:
             edges = recortar_imagen_again(edges,self.starty, self.axes)
-            #edges = cv2.resize(edges,(224, 224))
             return edges
             
-        '''except Exception as e:
-            print(f"Error processing")
-            return None'''
     
     def __del__(self):
         if self.cap is not None:
             self.cap.release()
+        self.clear_cache()  # Ensure cache is cleared on object deletion
 

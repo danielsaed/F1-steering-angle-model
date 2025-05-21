@@ -4,7 +4,7 @@ import numpy as np
 from pathlib import Path
 import plotly.graph_objects as go
 from PIL import Image, ImageDraw
-from utils.video_processor import VideoProcessor,convert_video_to_10fps
+from utils.video_processor import VideoProcessor
 from utils.model_handler import ModelHandler
 from utils.ui_components import (
     create_header,
@@ -30,6 +30,13 @@ def create_upload_section():
     st.markdown("</div>", unsafe_allow_html=True)
     return uploaded_file
 
+
+def clear_session_state():
+    """Clear unnecessary session state variables to free memory."""
+    keys_to_clear = ['video_processor', 'df', 'processed_frames', 'processed_frames1']
+    for key in keys_to_clear:
+        if key in st.session_state:
+            del st.session_state[key]
 
 
 load_css()
@@ -83,6 +90,7 @@ with col2:
         st.markdown("")
 
         if uploaded_file:
+            
             # Load video
             if st.session_state.video_processor.load_video(uploaded_file):
                 total_frames = st.session_state.video_processor.total_frames
@@ -249,6 +257,8 @@ with col2:
                             # Convert results to DataFrame and display
                             df = st.session_state.model_handler.export_results(results)
                             st.session_state.df = df
+                            st.session_state.video_processor.clear_cache()  # Clear cache after processing
+                             # Clear unnecessary session state variables to free memory
                             # Create steering angle chart using Plotly
                     df = st.session_state.df
                     #crude_frames = st.session_state.processed_frames
@@ -294,6 +304,11 @@ with col2:
 
         else:
             st.session_state.btn = False
+            try:
+                clear_session_state()
+                print("Session state cleared")
+            except:
+                print("Error clearing session state")
     
         
     with tabs[1]:  # Driver Behavior tab

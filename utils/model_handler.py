@@ -89,7 +89,6 @@ def preprocess_image_exactly_like_pytorch(image_input):
         print(f"Min value: {np.min(image_input)}, Max value: {np.max(image_input)}")
         raise
 
-
 def correct_outlier_angles(df, window_size=5, std_threshold=3.0, max_diff_threshold=80.0):
     
     angles = df['steering_angle'].values
