@@ -1,1 +1,7 @@
+*.pyc
+*.spec
+
 /img_test
+/dist
+/build
+/venv
