@@ -14,10 +14,20 @@ from utils.ui_components import (
     create_line_chart
 )
 from utils.video_processor import profiler
+from utils.helper import BASE_DIR
 
+
+print("BASE_DIR", BASE_DIR)
+
+
+
+path_load_css = Path(BASE_DIR) / "assets" / "style.css"
+print(path_load_css)
 def load_css():
-    with open("assets/style.css") as f:
+    with open(Path(BASE_DIR) / "assets" / "style.css") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+
 
 def create_upload_section():
     """Create the video upload section"""
@@ -82,7 +92,7 @@ with col2:
             st.markdown("<span style='margin-right: 18px;'><strong>Onboard video example:</strong></span>", unsafe_allow_html=True)
             #st.markdown("( For testing, if needed )", unsafe_allow_html=True)
 
-            VIDEO_URL = str(Path("assets") / "demo_video.mp4")
+            VIDEO_URL = Path(BASE_DIR) / "assets" / "demo_video.mp4"
             st.video(VIDEO_URL)
 
         st.markdown("")
@@ -95,6 +105,8 @@ with col2:
             if st.session_state.video_processor.load_video(uploaded_file):
                 total_frames = st.session_state.video_processor.total_frames
                 original_fps = st.session_state.video_processor.fps
+                print("Original FPS:", original_fps)
+                print("Total frames:", total_frames)
                 
                 # FPS selection dropdown - after video is loaded
                 st.markdown("<div class='glassmorphic-container'>", unsafe_allow_html=True)
@@ -218,7 +230,7 @@ with col2:
                     #end_preview1 = cv2.imread("img\example.png")
                     
                     
-                    st.image("img/example.png", caption=f"GOAL Frame:")
+                    st.image(Path(BASE_DIR) / "img" / "example.png", caption=f"GOAL Frame:")
 
                 
                 
@@ -249,6 +261,7 @@ with col2:
                             frames,crude_frames = st.session_state.video_processor.extract_frames(
                                 start_frame, end_frame, fps_target=st.session_state.fps_target
                             )
+                            st.session_state.model_handler.fps = original_fps
                             results = st.session_state.model_handler.process_frames(
                                 frames, "F1 Steering Angle Detection"
                             )
@@ -390,15 +403,15 @@ with col2:
         
         
         with col1:
-            st.image("img/piastri-azerbaiyan_raw.jpg", caption="1. Original Frame")
+            st.image(Path(BASE_DIR) / "img" / "piastri-azerbaiyan_raw.jpg", caption="1. Original Frame")
 
         
         with col2:
             # Mostrar ejemplos de preprocesamiento - necesitas agregar estas imágenes a tu carpeta img/
             
-            st.image("img/piastri-azerbaiyan_clahe.jpg", caption="2. After CLAHE Enhancement")
+            st.image(Path(BASE_DIR) / "img" / "piastri-azerbaiyan_clahe.jpg", caption="2. After CLAHE Enhancement")
             
         with col3:
-            st.image("img/piastri-azerbaiyan_edge.jpg", caption="3. Edge Detection (Model Input)")
+            st.image(Path(BASE_DIR) / "img" / "piastri-azerbaiyan_edge.jpg", caption="3. Edge Detection (Model Input)")
         
         

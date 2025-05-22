@@ -18,6 +18,8 @@ from utils.helper import (
     )
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from utils.helper import BASE_DIR
 
 class Profiler:
     """Clase para trackear el tiempo de ejecución de las funciones"""
@@ -109,7 +111,7 @@ class VideoProcessor:
         self.driver_crop_type = "albon"
         self.load_crop_variables(self.driver_crop_type)
         #self.yolo_model = YOLO("models/best.pt")
-        self.model = ort.InferenceSession("models/best-224.onnx")
+        self.model = ort.InferenceSession(Path(BASE_DIR) / "models" / "best-224.onnx")
         self.input_shape = (224, 224)  # Match imgsz=224 from your original code
         self.conf_thres = 0.5  # Confidence threshold
         self.iou_thres = 0.5   # IoU threshold for NMS
@@ -324,6 +326,8 @@ class VideoProcessor:
         self.cap = cv2.VideoCapture(tfile.name)
         self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
+        print(f"FPS: {self.fps}")
+        print(f"Total frames: {self.total_frames}")
         
         return True
     

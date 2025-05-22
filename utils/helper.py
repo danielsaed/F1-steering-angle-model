@@ -4,7 +4,43 @@ from typing import Tuple
 import tempfile
 import os
 from PIL import Image
+import sys
 
+try:
+    if getattr(sys, 'frozen', False):
+        # En el ejecutable, intentar sys._MEIPASS
+        BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+        print(f"Executable mode - Initial BASE_DIR: {BASE_DIR} (_MEIPASS: {hasattr(sys, '_MEIPASS')})")
+        # Verificar si BASE_DIR contiene los archivos esperados
+        expected_dirs = ['navigation', 'models', 'assets', 'img', 'utils']
+        if not any(os.path.exists(os.path.join(BASE_DIR, d)) for d in expected_dirs):
+            print(f"Warning: Expected directories not found in {BASE_DIR}")
+            # Buscar _MEI<random> en el directorio padre
+            temp_dir = os.path.dirname(BASE_DIR) if BASE_DIR != os.path.dirname(sys.executable) else BASE_DIR
+            for d in os.listdir(temp_dir):
+                if d.startswith('_MEI'):
+                    candidate = os.path.join(temp_dir, d)
+                    if any(os.path.exists(os.path.join(candidate, ed)) for ed in expected_dirs):
+                        BASE_DIR = candidate
+                        print(f"Adjusted BASE_DIR to _MEI directory: {BASE_DIR}")
+                        break
+            else:
+                print(f"No _MEI directory found in {temp_dir}, using {BASE_DIR}")
+    else:
+        # En desarrollo, usar el directorio del proyecto
+        current_file = os.path.abspath(os.path.realpath(__file__))
+        print(f"Development mode - Current file: {current_file}")
+        BASE_DIR = os.path.dirname(os.path.dirname(current_file))  # Subir de utils/ a F1-machine-learning-webapp/
+        print(f"Development mode - BASE_DIR: {BASE_DIR}")
+except Exception as e:
+    print(f"Error setting BASE_DIR: {e}")
+    # Fallback
+    BASE_DIR = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
+    BASE_DIR = os.path.dirname(BASE_DIR)
+    print(f"Fallback BASE_DIR: {BASE_DIR}")
+
+BASE_DIR = os.path.normpath(BASE_DIR)
+print(f"Final BASE_DIR: {BASE_DIR}")
 
 
 #-------------YOLO ONNX HELPERS-------------------

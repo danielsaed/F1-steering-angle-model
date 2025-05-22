@@ -1,5 +1,9 @@
 #streamlit run your_script.py
 import streamlit as st
+import os
+import sys
+from utils.helper import BASE_DIR
+from pathlib import Path
 
 st.set_page_config(
         page_title="F1 Video Analysis Platform",
@@ -7,6 +11,7 @@ st.set_page_config(
         initial_sidebar_state="expanded",
         layout="wide"
     )
+
 
 hide_decoration_bar_style = '''
     <style>
@@ -88,6 +93,7 @@ with st.sidebar:
     st.caption("""**Usage**:""") 
     st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>The app will likely crash or will be too slow if there is high traffic; If you use the app frequently I recomend you to fork or clone it and run it locally, it will take 3-5 min.</p>", unsafe_allow_html=True)
     # 
+    st.caption(str(Path(BASE_DIR) / "navigation" / "soon.py"))
     st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>Any feedback is welcome.</p>", unsafe_allow_html=True)
     st.markdown("", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #fff;'>Contact</h3>", unsafe_allow_html=True)
@@ -97,11 +103,8 @@ with st.sidebar:
         <a href='https://x.com/aaa' target="_blank" class="contact-icon" title="X">
             <img src="https://static.vecteezy.com/system/resources/previews/053/986/348/non_2x/x-twitter-icon-logo-symbol-free-png.png" alt="X">
         </a>
-        <a href="https://github.com/danielsaed" target="_blank" class="contact-icon" title="GitHub">
+        <a href="https://github.com/danielsaed/F1-steering-angle-model" target="_blank" class="contact-icon" title="GitHub">
             <img src="https://cdn-icons-png.flaticon.com/512/25/25231.png" alt="GitHub">
-        </a>
-        <a href="mailto:your.email@example.com" class="contact-icon">
-            <img src="https://cdn-icons-png.flaticon.com/512/732/732200.png" alt="Email">
         </a>
     </div>
     
@@ -115,8 +118,8 @@ with st.sidebar:
 
 pages = st.navigation({ 
     "Steering Angle Model": [
-        st.Page("navigation/steering-angle.py", title="Use Model"),
-        st.Page("navigation/soon.py", title="Help To Improve Model"),
+        st.Page(Path(BASE_DIR) / "navigation" / "steering-angle.py", title="Use Model"),
+        st.Page(Path(BASE_DIR) / "navigation" / "soon.py", title="Help To Improve Model"),
         ],})
 
 pages.run()

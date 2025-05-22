@@ -4,6 +4,8 @@ from typing import List, Dict
 from PIL import Image
 import cv2
 import onnxruntime as ort
+from utils.helper import BASE_DIR
+from pathlib import Path
 
 def denormalize_angles(normalized_angles):
     """
@@ -141,8 +143,9 @@ class ModelHandler:
         # Placeholder for actual model loading
         self.current_model = None
         self.current_model_name = None
+        self.fps = None
         self.available_models = {
-            "F1 Steering Angle Detection": r"models/f1-steering-angle-model.onnx",
+            "F1 Steering Angle Detection": Path(BASE_DIR) / "models" / "f1-steering-angle-model.onnx",
             "Track Position Analysis": "position_model",
             "Driver Behavior Analysis": "behavior_model"
         }
@@ -203,7 +206,7 @@ class ModelHandler:
                 
                 # Procesar resultados por lotes
                 for i in range(len(current_batch)):
-                    frame_idx = batch_start + i
+                    frame_idx = batch_start + i +1
                     predicted_angle_normalized = ort_outputs[0][i][0]
                     angle = denormalize_angles(predicted_angle_normalized)
                     confidence = np.random.uniform(0.7, 0.99)
@@ -211,14 +214,13 @@ class ModelHandler:
                     results.append({
                         'frame_number': frame_idx,
                         'steering_angle': angle,
-                        'confidence': confidence
                     })
                     
             except Exception as e:
                 print(f"Error in batch processing: {e}")
                 # Si falla el procesamiento por lotes, volver a procesar individualmente
                 for i, frame in enumerate(current_batch):
-                    frame_idx = batch_start + i
+                    frame_idx = batch_start + i +1
                     try:
                         input_data = preprocess_image_exactly_like_pytorch(frame)
                         ort_inputs = {input_name: input_data}
@@ -230,16 +232,14 @@ class ModelHandler:
                         
                         results.append({
                             'frame_number': frame_idx,
-                            'steering_angle': angle,
-                            'confidence': confidence
+                            'steering_angle': angle
                         })
                     except Exception as sub_e:
                         print(f"Error processing individual frame {frame_idx}: {sub_e}")
                         # Añadir un resultado con valores predeterminados
                         results.append({
                             'frame_number': frame_idx,
-                            'steering_angle': 0.0,
-                            'confidence': 0.0
+                            'steering_angle': 0.0
                         })
         
         return results
@@ -247,6 +247,7 @@ class ModelHandler:
     def export_results(self, results: Dict) -> pd.DataFrame:
         """Convert results to pandas DataFrame for export"""
         df = pd.DataFrame(results)
+        df['time'] = df['frame_number'] / self.fps
         
         df = correct_outlier_angles(df, window_size=3, std_threshold=100, max_diff_threshold=15.0)
         df = correct_outlier_angles(df, window_size=3, std_threshold=100, max_diff_threshold=15.0)
