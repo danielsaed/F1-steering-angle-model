@@ -3,7 +3,7 @@ numpy==1.24.3
 pandas==2.0.3
 matplotlib==3.7.2
 plotly==5.18.0
-opencv-python-headless==4.8.1.78
+opencv-python==4.11.0.86
 Pillow==10.0.0
 onnxruntime==1.15.1
-
+streamlit-desktop-app==0.3.4
