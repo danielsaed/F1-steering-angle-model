@@ -90,10 +90,11 @@ st.markdown(logo_style, unsafe_allow_html=True)
 
 with st.sidebar:
     st.markdown("<h3 style='text-align: center; color: #fff;'>Considerations</h3>", unsafe_allow_html=True)
+    st.caption("""**Ouput Data**:""")
+    st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>The model is trained on over 22,000 images from -180° to 180° with a potential 2.5° error, for the moment may not accurately predict angles beyond 180°. Poor or high-intensity lighting may affect data accuracy.</p>", unsafe_allow_html=True)
     st.caption("""**Usage**:""") 
-    st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>The app will likely crash or will be too slow if there is high traffic; If you use the app frequently I recomend you to fork or clone it and run it locally, it will take 3-5 min.</p>", unsafe_allow_html=True)
-    # 
-    st.caption(str(Path(BASE_DIR) / "navigation" / "soon.py"))
+    st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>Free-tier server resources are limited, so the page may be slow or crash with large files. To run it locally, feel free to fork/clone the project or download the desktop app.</p>", unsafe_allow_html=True)
+
     st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>Any feedback is welcome.</p>", unsafe_allow_html=True)
     st.markdown("", unsafe_allow_html=True)
     st.markdown("<h3 style='text-align: center; color: #fff;'>Contact</h3>", unsafe_allow_html=True)
@@ -113,13 +114,13 @@ with st.sidebar:
     st.markdown(contact_html, unsafe_allow_html=True)
     st.write("")
     st.write("")
-    st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>For research/educational purposes only, its not related to F1 or any organization.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>For research/educational purposes only</p>", unsafe_allow_html=True)
 
 
 pages = st.navigation({ 
     "Steering Angle Model": [
         st.Page(Path(BASE_DIR) / "navigation" / "steering-angle.py", title="Use Model"),
-        st.Page(Path(BASE_DIR) / "navigation" / "soon.py", title="Help To Improve Model"),
+        st.Page(Path(BASE_DIR) / "navigation" / "soon.py", title="Steering Data Available"),
         ],})
 
 pages.run()
