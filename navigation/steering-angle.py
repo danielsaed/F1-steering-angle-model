@@ -82,9 +82,9 @@ with col2:
         with coll1:
             st.markdown("#### Step 1: Upload F1 Onboard Video ⬆️")
             st.markdown("")
-            st.markdown("Recomendations to better model performance:")  
-            st.markdown("- Maximun 1 lap video due to 200mb restriction, record all onboard video screen")
-            st.markdown("- 1280 x 720 resolution or more, 30 FPS, 16/9 aspect ratio")
+            st.markdown("Recomendations:")  
+            st.markdown("- 1 lap videos, full onboard screen")
+            st.markdown("- 1080p,720p,480p resolutions, 10 to 30 FPS, 16/9 aspect ratio, consider 200mb restriction")
 
             uploaded_file = create_upload_section()
 
@@ -140,8 +140,8 @@ with col2:
                 st.session_state.start_frame = start_frame
                 st.session_state.end_frame = end_frame
 
-                if start_frame != actual_start_frame or end_frame != actual_end_frame:
-                    st.session_state.btn = False
+                '''if start_frame != actual_start_frame or end_frame != actual_end_frame:
+                    st.session_state.btn = False'''
 
                 
                 # Preview frames side by side
@@ -156,15 +156,26 @@ with col2:
                 
                 # Start frame preview
                 with preview_cols[0]:
-                    start_preview = st.session_state.video_processor.get_frame(start_frame)
+                    start_preview = None
+                    try:
+                        start_preview = st.session_state.video_processor.get_frame(start_frame)
+                    except:
+                        pass
+                    
                     if start_preview is not None:
-                        st.image(start_preview, caption=f"Start Frame: {start_frame}")
+                        #start_preview = cv2.resize(start_preview, (426, 240))
+                        st.image(start_preview, caption=f"Start Frame: {start_frame}",use_container_width=True)
                 
                 # End frame preview
                 with preview_cols[1]:
-                    end_preview = st.session_state.video_processor.get_frame(end_frame)
+                    end_preview = None
+                    try:
+                        end_preview = st.session_state.video_processor.get_frame(end_frame)
+                    except:
+                        pass
                     if end_preview is not None:
-                        st.image(end_preview, caption=f"End Frame: {end_frame}")
+                        #end_preview = cv2.resize(end_preview, (426, 240))
+                        st.image(end_preview, caption=f"End Frame: {end_frame}",use_container_width=True)
 
                 st.markdown("</div>", unsafe_allow_html=True)
                 
@@ -175,13 +186,14 @@ with col2:
 
                 # Create a dropdown for FPS selection
                 actual_fps = st.session_state.fps_target
+                st.session_state.fps_target = original_fps
 
                 st.markdown("")
                 st.markdown("")
                 st.markdown("")
 
 
-                st.markdown("#### Step 3: Select FPS 👈")
+                '''st.markdown("#### Step 3: Select FPS 👈")
                 st.session_state.fps_target = st.selectbox(
                     "Select frames per second to process",
                     options=fps_options,
@@ -190,7 +202,7 @@ with col2:
                     help="Choose how many frames per second to extract for processing"
                 )
                 if st.session_state.fps_target != actual_fps:
-                    st.session_state.btn = False
+                    st.session_state.btn = False'''
 
                 st.info(f"Selected range: {start_frame} to {end_frame} ({int(selected_duration*st.session_state.fps_target)} frames, {selected_duration:.2f} seconds). " 
                       f"At {st.session_state.fps_target} FPS")
@@ -222,7 +234,7 @@ with col2:
                     start_preview1 = st.session_state.video_processor.crop_frame_example(start_preview1)
                     
                     if start_preview1 is not None:
-                        st.image(start_preview1, caption=f"Start Frame: {start_frame}")
+                        st.image(start_preview1, caption=f"Start Frame: {start_frame}",use_container_width=True)
                 
                 # End frame preview
                 with preview_cols1[1]:
