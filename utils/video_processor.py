@@ -330,6 +330,72 @@ class VideoProcessor:
         print(f"Total frames: {self.total_frames}")
         
         return True
+    import cv2
+
+
+    def load_video2(self, video_file, output_resolution=(854, 480)) -> bool:
+        """
+        Load video file, resize to 480p, and get basic information.
+        
+        Args:
+            video_file: Input video file object
+            output_resolution: Tuple of (width, height) for resizing (default: 854x480 for 480p)
+        
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Create temporary file to store the input video
+            tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+            tfile.write(video_file.read())
+            tfile.close()  # Close the file to allow VideoCapture to access it
+
+            # Store the temporary file path
+            self.video_path = tfile.name
+
+            # Load the video
+            self.cap = cv2.VideoCapture(tfile.name)
+            if not self.cap.isOpened():
+                print("Error: Could not open video file.")
+                return False
+
+            # Get original video properties
+            self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
+            print(f"FPS: {self.fps}")
+            print(f"Total frames: {self.total_frames}")
+
+            # Prepare for resizing and saving to a new temporary file
+            output_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for MP4
+            out = cv2.VideoWriter(output_path, fourcc, self.fps, output_resolution)
+
+            # Process each frame
+            while self.cap.isOpened():
+                ret, frame = self.cap.read()
+                if not ret:
+                    break
+                # Resize frame to 480p
+                resized_frame = cv2.resize(frame, output_resolution, interpolation=cv2.INTER_AREA)
+                out.write(resized_frame)
+
+            # Release resources
+            self.cap.release()
+            out.release()
+
+            # Update video path to the resized video
+            self.video_path = output_path
+            self.cap = cv2.VideoCapture(self.video_path)
+            if not self.cap.isOpened():
+                print("Error: Could not open resized video.")
+                return False
+
+            print(f"Video resized to {output_resolution} and saved to {output_path}")
+            return True
+
+        except Exception as e:
+            print(f"Error processing video: {str(e)}")
+            return False
     
     def load_video1(self, video_file) -> bool:
         """Load video file and get basic information"""
@@ -422,11 +488,12 @@ class VideoProcessor:
         return None
     
     def get_frame(self, frame_number: int) -> np.ndarray:
+        
         if self.cap is None:
             return None
 
-        if frame_number in self.frame_cache:
-            return self.frame_cache[frame_number]
+        '''if frame_number in self.frame_cache:
+            return self.frame_cache[frame_number]'''
 
         if hasattr(self, 'last_position') and frame_number == self.last_position + 1:
             ret, frame = self.cap.read()
@@ -436,9 +503,10 @@ class VideoProcessor:
                 self.frame_cache[frame_number] = rgb_frame
                 if len(self.frame_cache) > self.frame_cache_size:
                     self.frame_cache.popitem(last=False)  # Remove oldest item
-                return rgb_frame
+                return cv2.resize(rgb_frame, (849, 477))
 
         for attempt in range(3):
+
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
             ret, frame = self.cap.read()
             if ret:
@@ -447,10 +515,14 @@ class VideoProcessor:
                 self.frame_cache[frame_number] = rgb_frame
                 if len(self.frame_cache) > self.frame_cache_size:
                     self.frame_cache.popitem(last=False)
-                return rgb_frame
+                
+                return cv2.resize(rgb_frame, (854,480), interpolation=cv2.INTER_LINEAR)
+
             if attempt < 2 and hasattr(self, 'video_path') and self.video_path:
                 self.cap.release()
                 self.cap = cv2.VideoCapture(self.video_path)
+            
+        print(f"Error reading frame {frame_number}, retrying...")
         return None
     
     def get_frame_example(self, frame_number: int) -> np.ndarray:
@@ -465,6 +537,7 @@ class VideoProcessor:
         """
         if self.cap is None:
             return None
+        print(f"Frame number: {frame_number}")
         
         # 1. Inicializar atributos de seguimiento si no existen
         if not hasattr(self, 'frame_cache'):
@@ -500,24 +573,27 @@ class VideoProcessor:
         
         # 4. Acceso directo con mecanismo de reintento
         for attempt in range(3):  # Intentar hasta 3 veces si falla
-            self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
-            ret, frame = self.cap.read()
-            
-            if ret:
-                # Actualizar last_position para futuras optimizaciones secuenciales
-                self.last_position = frame_number
-                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            try:
+                self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
+                ret, frame = self.cap.read()
                 
-                # Añadir al caché
-                self.frame_cache[frame_number] = rgb_frame
-                
-                # Mantener tamaño del caché
-                if len(self.frame_cache) > self.frame_cache_size:
-                    # Eliminar el frame más antiguo (menor número)
-                    oldest = min(self.frame_cache.keys())
-                    del self.frame_cache[oldest]
+                if ret:
+                    # Actualizar last_position para futuras optimizaciones secuenciales
+                    self.last_position = frame_number
+                    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     
-                return rgb_frame
+                    # Añadir al caché
+                    self.frame_cache[frame_number] = rgb_frame
+                    
+                    # Mantener tamaño del caché
+                    if len(self.frame_cache) > self.frame_cache_size:
+                        # Eliminar el frame más antiguo (menor número)
+                        oldest = min(self.frame_cache.keys())
+                        del self.frame_cache[oldest]
+                        
+                    return rgb_frame
+            except:
+                pass
                 
             if attempt < 2:  # No reintentar en el último intento
                 # Restaurar el objeto cap en caso de error
@@ -525,6 +601,7 @@ class VideoProcessor:
                 if hasattr(self, 'video_path') and self.video_path:
                     self.cap.release()
                     self.cap = cv2.VideoCapture(self.video_path)
+
         
         # Si llegamos aquí, todos los intentos fallaron
         return None
@@ -623,7 +700,7 @@ class VideoProcessor:
         """Mask the helmet region using SAM and paint it green."""
         print("Processing frame...")
         
-        img = cv2.resize(img, (224, 224))
+        img = cv2.resize(img, (224, 224), interpolation=cv2.INTER_LINEAR)
         height, width = img.shape[:2]
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
