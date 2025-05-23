@@ -95,8 +95,12 @@ def postprocess_outputs(outputs: list, height: int, width: int) -> Tuple[np.ndar
             continue
         class_id = row[4:5].argmax()
         label = yolo_classes[class_id]
+
         mask = get_mask(row[5:25684], (x1,y1,x2,y2), width, height)
-        polygon = get_polygon(mask)
+        try:
+            polygon = get_polygon(mask)
+        except:
+            continue
         objects.append([x1,y1,x2,y2,label,prob,mask,polygon])
 
 
@@ -153,6 +157,8 @@ def get_mask(row, box, img_width, img_height):
     img_mask = img_mask.resize((round(x2-x1),round(y2-y1)))
     mask = np.array(img_mask)
     return mask
+
+
 
 # calculate bounding polygon from mask
 def get_polygon(mask):
