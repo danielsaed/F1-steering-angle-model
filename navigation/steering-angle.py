@@ -14,15 +14,23 @@ from utils.ui_components import (
     create_line_chart
 )
 from utils.video_processor import profiler
-from utils.helper import BASE_DIR
 
 
-print("BASE_DIR", BASE_DIR)
+if 'BASE_DIR' not in st.session_state:
+    from utils.helper import BASE_DIR,metrics_collection
+    st.session_state.BASE_DIR = BASE_DIR
+    print("BASE_DIR", BASE_DIR)
 
+if 'metrics_collection' not in st.session_state:
+    from utils.helper import BASE_DIR,metrics_collection
+    st.session_state.metrics_collection = metrics_collection
+    print("metrics_collection", metrics_collection)
 
-
+BASE_DIR = st.session_state.BASE_DIR
+metrics_collection = st.session_state.metrics_collection
 path_load_css = Path(BASE_DIR) / "assets" / "style.css"
 print(path_load_css)
+
 def load_css():
     with open(Path(BASE_DIR) / "assets" / "style.css") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
@@ -52,6 +60,8 @@ def clear_session_state():
 load_css()
 cont = 0
 
+
+
 col1, col2,col3 = st.columns([1,3,1])
 
 with col2:
@@ -72,9 +82,15 @@ with col2:
     if 'driver_crop_type' not in st.session_state:
         st.session_state.driver_crop_type = "Base"  # Default FPS target
     if 'start_frame' not in st.session_state:
-        st.session_state.start_frame = 0  # Default FPS target
+        st.session_state.start_frame = -1  # Default FPS target
     if 'end_frame' not in st.session_state:
-        st.session_state.end_frame = 1  # Default FPS target
+        st.session_state.end_frame = -2  # Default FPS target
+    if 'start_preview' not in st.session_state:
+        st.session_state.start_preview = None
+    if 'end_preview' not in st.session_state:
+        st.session_state.end_preview = None
+    if 'start_preview1' not in st.session_state:
+        st.session_state.start_preview1 = None
         
     with tabs[0]:  # Steering Angle Detection tab
         st.warning("Downloading or recording F1 onboards videos potentially violates F1/F1TV's terms of service.")
@@ -111,38 +127,19 @@ with col2:
                 # FPS selection dropdown - after video is loaded
                 st.markdown("<div class='glassmorphic-container'>", unsafe_allow_html=True)
 
-                # Cap at the original FPS of the video
-                fps_options = [1]  # Start with 1 FPS
-                for fps in range(5, original_fps + 1, 5):
-                    fps_options.append(fps)
-                    
-                # Remove duplicates and sort
-                fps_options = sorted(list(set(fps_options)))
-
-                # Find the index of 10 FPS or the closest available option
-                default_index = 0
-                if 10 in fps_options:
-                    default_index = fps_options.index(10)
-                else:
-                    closest_fps = min(fps_options, key=lambda x: abs(x - 10))
-                    default_index = fps_options.index(closest_fps)
-
-
-
-
 
                 st.markdown("#### Step 2: Select Start And End Frames ✂️")
                 # Frame selection
-                actual_start_frame = st.session_state.start_frame
-                actual_end_frame = st.session_state.end_frame
-                start_frame, end_frame = create_frame_selector(total_frames)
+                #start_frame, end_frame = create_frame_selector(total_frames)
+                st.markdown("<div class='glassmorphic-container'>", unsafe_allow_html=True)
 
-                st.session_state.start_frame = start_frame
-                st.session_state.end_frame = end_frame
-
-                '''if start_frame != actual_start_frame or end_frame != actual_end_frame:
-                    st.session_state.btn = False'''
-
+                # Create a slider for frame range selection
+                start_frame, end_frame = st.select_slider(
+                    "Select Frame Range",
+                    options=range(0, total_frames),
+                    value=(0, total_frames-1),
+                    format_func=lambda x: f"Frame {x}"
+                )
                 
                 # Preview frames side by side
                 st.markdown("<div class='glassmorphic-container'>", unsafe_allow_html=True)
@@ -156,26 +153,29 @@ with col2:
                 
                 # Start frame preview
                 with preview_cols[0]:
-                    start_preview = None
-                    try:
-                        start_preview = st.session_state.video_processor.get_frame(start_frame)
-                    except:
-                        pass
-                    
-                    if start_preview is not None:
+                    if start_frame != st.session_state.start_frame:
+                        try:
+                            st.session_state.start_preview = st.session_state.video_processor.get_frame(start_frame)                         
+                        except:
+                            pass
+                    if st.session_state.start_preview is not None:
                         #start_preview = cv2.resize(start_preview, (426, 240))
-                        st.image(start_preview, caption=f"Start Frame: {start_frame}",use_container_width=True)
+                        st.image(st.session_state.start_preview, caption=f"Start Frame: {start_frame}",use_container_width=True)
+                        
                 
                 # End frame preview
                 with preview_cols[1]:
-                    end_preview = None
-                    try:
-                        end_preview = st.session_state.video_processor.get_frame(end_frame)
-                    except:
-                        pass
-                    if end_preview is not None:
+                    if end_frame != st.session_state.end_frame:
+                        try:
+                            st.session_state.end_preview = st.session_state.video_processor.get_frame(end_frame)
+                        except:
+                            pass
+                    if st.session_state.end_preview is not None:
                         #end_preview = cv2.resize(end_preview, (426, 240))
-                        st.image(end_preview, caption=f"End Frame: {end_frame}",use_container_width=True)
+                        st.image(st.session_state.end_preview, caption=f"End Frame: {end_frame}",use_container_width=True)
+
+                st.session_state.start_frame = start_frame
+                st.session_state.end_frame = end_frame
 
                 st.markdown("</div>", unsafe_allow_html=True)
                 
@@ -191,18 +191,6 @@ with col2:
                 st.markdown("")
                 st.markdown("")
                 st.markdown("")
-
-
-                '''st.markdown("#### Step 3: Select FPS 👈")
-                st.session_state.fps_target = st.selectbox(
-                    "Select frames per second to process",
-                    options=fps_options,
-                    index=default_index,
-                    format_func=lambda x: f"{x} FPS",
-                    help="Choose how many frames per second to extract for processing"
-                )
-                if st.session_state.fps_target != actual_fps:
-                    st.session_state.btn = False'''
 
                 st.info(f"Selected range: {start_frame} to {end_frame} ({int(selected_duration*st.session_state.fps_target)} frames, {selected_duration:.2f} seconds). " 
                       f"At {st.session_state.fps_target} FPS")
@@ -228,13 +216,14 @@ with col2:
                 
                 preview_cols1 = st.columns(2)
                 with preview_cols1[0]:
-                    start_preview1 = st.session_state.video_processor.get_frame_example(0)
-                    st.session_state.video_processor.load_crop_variables(st.session_state.driver_crop_type)
-                    
-                    start_preview1 = st.session_state.video_processor.crop_frame_example(start_preview1)
-                    
-                    if start_preview1 is not None:
-                        st.image(start_preview1, caption=f"Start Frame: {start_frame}",use_container_width=True)
+                    if st.session_state.start_preview1 is None or st.session_state.driver_crop_type != driver_crop_type:
+                        st.session_state.start_preview1 = st.session_state.video_processor.get_frame_example(0)
+                        st.session_state.video_processor.load_crop_variables(st.session_state.driver_crop_type)
+                        
+                        st.session_state.start_preview1 = st.session_state.video_processor.crop_frame_example(st.session_state.start_preview1)
+                        
+                    if st.session_state.start_preview1 is not None:
+                        st.image(st.session_state.start_preview1, caption=f"Example",use_container_width=True)
                 
                 # End frame preview
                 with preview_cols1[1]:
@@ -242,7 +231,7 @@ with col2:
                     #end_preview1 = cv2.imread("img\example.png")
                     
                     
-                    st.image(Path(BASE_DIR) / "img" / "example.png", caption=f"GOAL Frame:")
+                    st.image(Path(BASE_DIR) / "img" / "example.png", caption=f"GOAL Frame:",use_container_width=True)
 
                 
                 
@@ -277,6 +266,13 @@ with col2:
                             results = st.session_state.model_handler.process_frames(
                                 frames, "F1 Steering Angle Detection"
                             )
+                            try:
+                                metrics_collection.update_one(
+                                    {"action": "descargar_app"},
+                                    {"$inc": {"count": 1}}
+                                )
+                            except:
+                                st.warning("MongoDB client not connected.")
                             #st.session_state.processed_frames = crude_frames
                             #st.session_state.processed_frames1 = frames
                             # Convert results to DataFrame and display
@@ -299,6 +295,8 @@ with col2:
                     st.markdown("# Results")
 
                     display_results(df)
+
+                    
 
                     st.markdown("")
                     st.subheader("Steering Line Chart 📈")
