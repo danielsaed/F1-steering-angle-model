@@ -2,7 +2,7 @@
 import streamlit as st
 import os
 import sys
-from utils.helper import BASE_DIR
+from utils.helper import BASE_DIR,metrics_page
 from pathlib import Path
 
 st.set_page_config(
@@ -11,6 +11,13 @@ st.set_page_config(
         initial_sidebar_state="expanded",
         layout="wide"
     )
+
+if "visited" not in st.session_state:
+    st.session_state["visited"] = True
+    try:
+        metrics_page.update_one({"page": "inicio"}, {"$inc": {"visits": 1}})
+    except:
+        st.warning("MongoDB client not connected.")
 
 
 hide_decoration_bar_style = '''
@@ -97,6 +104,7 @@ with st.sidebar:
 
     st.markdown("<p style='text-align: left; color: gray; font-size: 12px;'>Any feedback is welcome.</p>", unsafe_allow_html=True)
     st.markdown("", unsafe_allow_html=True)
+
     st.markdown("<h3 style='text-align: center; color: #fff;'>Contact</h3>", unsafe_allow_html=True)
     # Nueva versión más compacta de los iconos
     contact_html = """
@@ -115,12 +123,23 @@ with st.sidebar:
     st.write("")
     st.write("")
     st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>For research/educational purposes only</p>", unsafe_allow_html=True)
+    
+    st.write("")
+    st.write("")
+    st.write("")
+
+    st.markdown("<h3 style='text-align: center; color: #fff;'>Get Desktop App</h3>", unsafe_allow_html=True)
+    col1,col2, col3 = st.columns([1,6,1])
+    with col2:
+
+        st.markdown("<p style='text-align: center; color: gray; font-size: 10px;'>Click Assets then download .exe</p>", unsafe_allow_html=True)
+        st.link_button("Download", "https://github.com/danielsaed/F1-steering-angle-model/releases",type="secondary",use_container_width=True)
 
 
 pages = st.navigation({ 
     "Steering Angle Model": [
         st.Page(Path(BASE_DIR) / "navigation" / "steering-angle.py", title="Use Model"),
-        st.Page(Path(BASE_DIR) / "navigation" / "soon.py", title="Steering Data Available"),
+        st.Page(Path(BASE_DIR) / "navigation" / "soon.py", title="Historical Steering Data Base"),
         ],})
 
 pages.run()
