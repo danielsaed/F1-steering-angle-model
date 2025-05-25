@@ -5,6 +5,9 @@ import tempfile
 import os
 from PIL import Image
 import sys
+from pymongo import MongoClient
+from dotenv import load_dotenv
+import os
 
 try:
     if getattr(sys, 'frozen', False):
@@ -41,6 +44,26 @@ except Exception as e:
 
 BASE_DIR = os.path.normpath(BASE_DIR)
 print(f"Final BASE_DIR: {BASE_DIR}")
+
+
+
+try:
+    load_dotenv()  # Carga las variables desde .env
+    mongo_uri = os.getenv("MONGO_URI")
+    client = MongoClient(mongo_uri)
+    db = client["f1_data"]
+    metrics_collection = db["usage_metrics"]
+    metrics_page = db["visits"]
+    if not metrics_page.find_one({"page": "inicio"}):
+        metrics_page.insert_one({"page": "inicio", "visits": 0})
+    if not metrics_collection.find_one({"action": "descargar_app"}):
+        metrics_collection.insert_one({"action": "descargar_app", "count": 0})
+except:
+    print("Error loading MongoDB URI from .env file. Please check your configuration.")
+    client = None
+    metrics_collection = None
+    metrics_page = None
+    db = None
 
 
 #-------------YOLO ONNX HELPERS-------------------
@@ -427,7 +450,7 @@ def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage
     
     # Initial parameters - ajustados para conseguir un rango alrededor del 6% de bordes
     clip_limits = [1]
-    grid_sizes = [(3, 3)]
+    grid_sizes = [(2, 2)]
     # Empezamos con umbrales más altos para restringir la cantidad de bordes
     canny_thresholds = [(55, 170), (45, 160), (35, 150), (25, 140), (20, 130),(20, 130),(20, 130)]
     
@@ -453,7 +476,7 @@ def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage
         
         enhanced = clahe.apply(gray)
 
-        denoised = cv2.bilateralFilter(enhanced, d=4, sigmaColor=200, sigmaSpace=200)
+        denoised = cv2.bilateralFilter(enhanced, d=5, sigmaColor=200, sigmaSpace=200)
         #print("denoised shape:", denoised.shape, "dtype:", denoised.dtype)
         # Apply noise reduction for higher attempts
         '''if attempt >= 2:
@@ -461,8 +484,8 @@ def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage
         
 
         median_intensity = np.median(denoised)
-        low_threshold = max(20, (1.0 -.5) * median_intensity)
-        high_threshold = max(80, (1.0 + 0.5) * median_intensity)
+        low_threshold = max(20, (1.0 -.3) * median_intensity)
+        high_threshold = max(80, (1.0 + 0.8) * median_intensity)
         # Edge detection
         edges = cv2.Canny(denoised, low_threshold, high_threshold)
         std_intensity = np.std(edges)
