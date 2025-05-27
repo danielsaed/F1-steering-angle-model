@@ -49,7 +49,7 @@ print(f"Final BASE_DIR: {BASE_DIR}")
 
 
 try:
-    load_dotenv()  # Carga las variables desde .env
+    #load_dotenv()  # Carga las variables desde .env
     #mongo_uri = os.getenv("MONGO_URI")
     mongo_uri = st.secrets["MONGO_URI"]
     client = MongoClient(mongo_uri)
