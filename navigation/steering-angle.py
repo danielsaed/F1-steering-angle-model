@@ -164,7 +164,7 @@ with col2:
                     start_frame_max = int(total_frames * 0.1)  # 10% del total
                     end_frame_min = int(total_frames * 0.9)    # 90% del total
                     end_frame_max = total_frames - 1
-                    if st.session_state.end_frame_helper is -1:
+                    if st.session_state.end_frame_helper == -1:
                         st.session_state.end_frame_helper = end_frame_max
                     
                     # Actualizar los valores de session_state basándose en el slider
