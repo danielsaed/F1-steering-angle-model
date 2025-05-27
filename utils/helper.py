@@ -48,24 +48,24 @@ print(f"Final BASE_DIR: {BASE_DIR}")
 
 
 
-try:
-    #load_dotenv()  # Carga las variables desde .env
-    #mongo_uri = os.getenv("MONGO_URI")
-    mongo_uri = st.secrets["MONGO_URI"]
-    client = MongoClient(mongo_uri)
-    db = client["f1_data"]
-    metrics_collection = db["usage_metrics"]
-    metrics_page = db["visits"]
-    if not metrics_page.find_one({"page": "inicio"}):
-        metrics_page.insert_one({"page": "inicio", "visits": 0})
-    if not metrics_collection.find_one({"action": "descargar_app"}):
-        metrics_collection.insert_one({"action": "descargar_app", "count": 0})
-except:
+
+#load_dotenv()  # Carga las variables desde .env
+#mongo_uri = os.getenv("MONGO_URI")
+mongo_uri = st.secrets["MONGO_URI"]
+client = MongoClient(mongo_uri)
+db = client["f1_data"]
+metrics_collection = db["usage_metrics"]
+metrics_page = db["visits"]
+if not metrics_page.find_one({"page": "inicio"}):
+    metrics_page.insert_one({"page": "inicio", "visits": 0})
+if not metrics_collection.find_one({"action": "descargar_app"}):
+    metrics_collection.insert_one({"action": "descargar_app", "count": 0})
+'''except:
     print("Error loading MongoDB URI from .env file. Please check your configuration.")
     client = None
     metrics_collection = None
     metrics_page = None
-    db = None
+    db = None'''
 
 
 #-------------YOLO ONNX HELPERS-------------------
