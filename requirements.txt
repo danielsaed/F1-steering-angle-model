@@ -7,3 +7,4 @@ opencv-python-headless==4.11.0.86
 Pillow==10.0.0
 onnxruntime==1.15.1
 streamlit-desktop-app==0.3.4
+pymongo==4.9.2
