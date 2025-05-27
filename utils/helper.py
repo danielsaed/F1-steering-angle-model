@@ -53,7 +53,7 @@ print(f"Final BASE_DIR: {BASE_DIR}")
 #mongo_uri = os.getenv("MONGO_URI")
 @st.cache_resource
 def get_mongo_client():
-    return MongoClient(**st.secrets["MONGO_URI"])
+    return MongoClient(st.secrets["MONGO_URI"])
 client = get_mongo_client()
 
 @st.cache_data(ttl=1200)
