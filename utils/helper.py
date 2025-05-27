@@ -8,6 +8,7 @@ import sys
 from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
+import streamlit as st
 
 try:
     if getattr(sys, 'frozen', False):
@@ -49,7 +50,8 @@ print(f"Final BASE_DIR: {BASE_DIR}")
 
 try:
     load_dotenv()  # Carga las variables desde .env
-    mongo_uri = os.getenv("MONGO_URI")
+    #mongo_uri = os.getenv("MONGO_URI")
+    mongo_uri = st.secrets["MONGO_URI"]
     client = MongoClient(mongo_uri)
     db = client["f1_data"]
     metrics_collection = db["usage_metrics"]
