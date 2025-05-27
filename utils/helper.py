@@ -56,7 +56,7 @@ def get_mongo_client():
     return MongoClient(st.secrets["MONGO_URI"])
 client = get_mongo_client()
 
-@st.cache_data(ttl=1200)
+
 def get_metrics_collections():
 
     db = client["f1_data"]
