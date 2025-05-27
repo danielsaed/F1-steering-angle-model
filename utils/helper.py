@@ -51,11 +51,20 @@ print(f"Final BASE_DIR: {BASE_DIR}")
 
 #load_dotenv()  # Carga las variables desde .env
 #mongo_uri = os.getenv("MONGO_URI")
-mongo_uri = st.secrets["MONGO_URI"]
-client = MongoClient(mongo_uri)
-db = client["f1_data"]
-metrics_collection = db["usage_metrics"]
-metrics_page = db["visits"]
+@st.cache_resource
+def get_mongo_client():
+    return MongoClient(**st.secrets["MONGO_URI"])
+client = get_mongo_client()
+
+@st.cache_data(ttl=1200)
+def get_metrics_collections():
+
+    db = client["f1_data"]
+    metrics_collection = db["usage_metrics"]
+    metrics_page = db["visits"]
+    return metrics_collection, metrics_page, db
+
+metrics_collection, metrics_page, db = get_metrics_collections()
 '''if not metrics_page.find_one({"page": "inicio"}):
     metrics_page.insert_one({"page": "inicio", "visits": 0})
 if not metrics_collection.find_one({"action": "descargar_app"}):
