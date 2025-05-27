@@ -56,10 +56,10 @@ client = MongoClient(mongo_uri)
 db = client["f1_data"]
 metrics_collection = db["usage_metrics"]
 metrics_page = db["visits"]
-if not metrics_page.find_one({"page": "inicio"}):
+'''if not metrics_page.find_one({"page": "inicio"}):
     metrics_page.insert_one({"page": "inicio", "visits": 0})
 if not metrics_collection.find_one({"action": "descargar_app"}):
-    metrics_collection.insert_one({"action": "descargar_app", "count": 0})
+    metrics_collection.insert_one({"action": "descargar_app", "count": 0})'''
 '''except:
     print("Error loading MongoDB URI from .env file. Please check your configuration.")
     client = None
