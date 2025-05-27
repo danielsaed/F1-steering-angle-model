@@ -108,18 +108,22 @@ class VideoProcessor:
         self.total_frames = 0
         self.fps = 0
         self.target_fps = 10
-        self.driver_crop_type = "albon"
+        self.driver_crop_type = "Verstappen 2025"  # Default driver crop type
         self.load_crop_variables(self.driver_crop_type)
         #self.yolo_model = YOLO("models/best.pt")
         self.model = ort.InferenceSession(Path(BASE_DIR) / "models" / "best-224.onnx")
         self.input_shape = (224, 224)  # Match imgsz=224 from your original code
         self.conf_thres = 0.5  # Confidence threshold
         self.iou_thres = 0.5   # IoU threshold for NMS
+        self.frame_count = 0
 
 
         self.frame_cache = OrderedDict()
         self.frame_cache_size = 50  # Reduced size to conserve memory
         self.last_position = -1
+
+        self.frames_list_end = {}
+        self.frames_list_start = {}
     
     def clear_cache(self):
         """Clear the frame cache to free memory."""
@@ -131,17 +135,35 @@ class VideoProcessor:
         Cargar variables de recorte según el tipo de conductor
         """
         driver_config = {
-    "albon": {
+    "Albon 2024": {
         "starty": 0.55,
         "axes": 0.39,
         "y_start": 0.53,
         "x_center": 0.59
     },
-    "alonso": {
+    "Albon 2025": {
+        "starty": 0.67,
+        "axes": 0.42,
+        "y_start": 0.53,
+        "x_center": 0.59
+    },
+    "Alonso 2024": {
         "starty": 0.5,
         "axes": 0.29,
         "y_start": 0.53,
         "x_center": 0.56
+    },
+    "Alonso 2025": {
+        "starty": 0.8,
+        "axes": 0.5,
+        "y_start": 0.53,
+        "x_center": 0.572
+    },
+    "Bortoleto 2025": {
+        "starty": 0.6,
+        "axes": 0.4,
+        "y_start": 0.53,
+        "x_center": 0.572
     },
     "bottas": {
         "starty": 0.67,
@@ -154,6 +176,60 @@ class VideoProcessor:
         "axes": 0.33,
         "y_start": 0.53,
         "x_center": 0.594
+    },
+    "Colapinto 2025": {
+        "starty": 0.54,
+        "axes": 0.4,
+        "y_start": 0.53,
+        "x_center": 0.58
+    },
+    "Gasly 2025": {
+        "starty": 0.57,
+        "axes": 0.35,
+        "y_start": 0.53,
+        "x_center": 0.58
+    },
+    "Hulk 2025": {
+        "starty": 0.73,
+        "axes": 0.3,
+        "y_start": 0.53,
+        "x_center": 0.548
+    },
+    "Lawson 2025": {
+        "starty": 0.68,
+        "axes": 0.42,
+        "y_start": 0.53,
+        "x_center": 0.555
+    },
+    "Ocon 2025": {
+        "starty": 0.65,
+        "axes": 0.42,
+        "y_start": 0.53,
+        "x_center": 0.585
+    },
+    "Sainz 2025": {
+        "starty": 0.77,
+        "axes": 0.42,
+        "y_start": 0.53,
+        "x_center": 0.57
+    },
+    "Stroll 2025": {
+        "starty": 0.6,
+        "axes": 0.45,
+        "y_start": 0.53,
+        "x_center": 0.565
+    },
+    "Bearman 2025": {
+        "starty": 0.72,
+        "axes": 0.45,
+        "y_start": 0.53,
+        "x_center": 0.58
+    },
+    "Hadjar 2025": {
+        "starty": 0.7,
+        "axes": 0.42,
+        "y_start": 0.53,
+        "x_center": 0.57
     },
     "hamilton-arabia": {
         "starty": 0.908,
@@ -314,6 +390,16 @@ class VideoProcessor:
         self.x_center = driver_config[self.driver_crop_type]["x_center"]
         self.helmet_height_ratio = driver_config[self.driver_crop_type]["helmet_height_ratio"] if "helmet_height_ratio" in driver_config[self.driver_crop_type] else 0.5
 
+    def clean_up(self):
+        """Release video capture and clear cache."""
+        
+        self.clear_cache()
+        self.frames_list_start = {}
+        self.frames_list_end = {}
+        self.video_path = None
+        self.frame_count = 0
+        print("VideoProcessor cleaned up.")
+
     @profiler.track_time
     def load_video(self, video_file) -> bool:
         """Load video file and get basic information"""
@@ -328,9 +414,75 @@ class VideoProcessor:
         self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
         print(f"FPS: {self.fps}")
         print(f"Total frames: {self.total_frames}")
+
+
+        #self.frames_list_start = [None] * self.total_frames  # prealocamos
+        #self.frames_list_end = [None] * self.total_frames  # prealocamos
+        self.start_frame_min = 0
+        self.start_frame_max = min(100,int(self.total_frames * 0.1))  # 10% del total
+
+        if self.total_frames > 500:
+            self.end_frame_min = int(self.total_frames-100)    # 90% del total
+        else:
+            self.end_frame_min = int(self.total_frames * 0.9)
+        self.end_frame_max = self.total_frames - 1
+        i = 0
+        print(len(self.frames_list_start), len(self.frames_list_end))
+
+        if self.frames_list_end == {}:
+
+
         
+            current_frame_num = self.start_frame_min
+            cap_thread = cv2.VideoCapture(self.video_path)
+            cap_thread.set(cv2.CAP_PROP_POS_FRAMES, float(self.start_frame_min))
+
+            while current_frame_num <= self.start_frame_max:
+                ret, frame = cap_thread.read()
+                if not ret:
+                    # print(f"Advertencia: No se pudo leer el frame {current_frame_num} de {video_path}.")
+                    break
+                
+                processed_frame = cv2.cvtColor(cv2.resize(frame, (256, 144), interpolation=cv2.INTER_LINEAR), cv2.COLOR_BGR2GRAY)
+                self.frames_list_start[current_frame_num] = processed_frame
+                current_frame_num += 1
+
+            cap_thread.release()
+
+
+            current_frame_num = self.end_frame_min
+            cap_thread = cv2.VideoCapture(self.video_path)
+            cap_thread.set(cv2.CAP_PROP_POS_FRAMES, float(self.end_frame_min))
+
+            while current_frame_num <= self.end_frame_max:
+                ret, frame = cap_thread.read()
+                if not ret:
+                    # print(f"Advertencia: No se pudo leer el frame {current_frame_num} de {video_path}.")
+                    break
+                
+                processed_frame = cv2.cvtColor(cv2.resize(frame, (256, 144), interpolation=cv2.INTER_LINEAR), cv2.COLOR_BGR2GRAY)
+                self.frames_list_end[current_frame_num] = processed_frame
+                current_frame_num += 1
+
+            cap_thread.release()
+
+            '''while True:
+                ret, frame = self.cap.read()
+                
+                if i >= start_frame_min and i <= start_frame_max:
+
+                    self.frames_list_start[i] = cv2.cvtColor(cv2.resize(frame, (426,240), interpolation=cv2.INTER_LINEAR),cv2.COLOR_BGR2GRAY)
+
+                if i >= end_frame_min and i <= end_frame_max:
+                    self.frames_list_end[i] = cv2.cvtColor(cv2.resize(frame, (426,240), interpolation=cv2.INTER_LINEAR),cv2.COLOR_BGR2GRAY)
+                
+                if not ret or i >= self.total_frames:
+                    break
+
+                i += 1'''
+
+            self.cap = cv2.VideoCapture(tfile.name)
         return True
-    import cv2
 
 
     def load_video2(self, video_file, output_resolution=(854, 480)) -> bool:
@@ -549,27 +701,6 @@ class VideoProcessor:
         # 2. Consultar caché primero (mejora extrema para frames accedidos repetidamente)
         if frame_number in self.frame_cache:
             return self.frame_cache[frame_number]
-        
-        # 3. Optimización para acceso secuencial (evita seeks innecesarios)
-        if hasattr(self, 'last_position') and frame_number == self.last_position + 1:
-            # El frame solicitado es el siguiente al último leído
-            ret, frame = self.cap.read()
-            if ret:
-                self.last_position = frame_number
-                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                
-                # Añadir al caché
-                self.frame_cache[frame_number] = rgb_frame
-                
-                # Mantener tamaño del caché
-                if len(self.frame_cache) > self.frame_cache_size:
-                    # Eliminar el frame más antiguo (menor número)
-                    oldest = min(self.frame_cache.keys())
-                    del self.frame_cache[oldest]
-                
-                rgb_frame = self.crop_frame(rgb_frame)
-                return rgb_frame
-            # Si falla la lectura, continuar con método directo
         
         # 4. Acceso directo con mecanismo de reintento
         for attempt in range(3):  # Intentar hasta 3 veces si falla
@@ -906,7 +1037,7 @@ class VideoProcessor:
 
         image = recortar_imagen(image,self.starty, self.axes)
         
-        clahe_image = cv2.createCLAHE(clipLimit=10, tileGridSize=(3, 3)).apply(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
+        clahe_image = cv2.createCLAHE(clipLimit=7, tileGridSize=(3, 3)).apply(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
         #clahe_image = cv2.equalizeHist(image)
         return clahe_image
     
