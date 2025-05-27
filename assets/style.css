@@ -7,7 +7,7 @@
 
 
 
-/* Button styles */
+/* Button styles 
 .stButton button {
     background: linear-gradient(90deg, #FF1E1E, #FF1E1E);
     color: white;
@@ -25,7 +25,7 @@
 .stButton button:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(255, 30, 30, 0.4);
-}
+}*/
 
 /* Tabs styling */
 .stTabs {
