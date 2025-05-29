@@ -247,7 +247,7 @@ class ModelHandler:
     def export_results(self, results: Dict) -> pd.DataFrame:
         """Convert results to pandas DataFrame for export"""
         df = pd.DataFrame(results)
-        df['time'] = df['frame_number'] / self.fps
+        df['time'] = round(df['frame_number'] / self.fps,3)
         
         df = correct_outlier_angles(df, window_size=3, std_threshold=100, max_diff_threshold=15.0)
         df = correct_outlier_angles(df, window_size=3, std_threshold=100, max_diff_threshold=15.0)
