@@ -51,7 +51,7 @@ def create_upload_section():
 
 def clear_session_state():
     """Clear unnecessary session state variables to free memory."""
-    keys_to_clear = ['video_processor', 'df', 'processed_frames', 'processed_frames1','end_dic', 'start_dic', 'start_preview', 'end_preview', 'start_preview1','end_frame_helper', 'start_frame_helper', 'start_frame', 'end_frame','driver_crop_type', 'driver_crop_type_2']
+    keys_to_clear = ['video_processor', 'df', 'processed_frames', 'processed_frames1','end_dic', 'start_dic', 'start_preview', 'end_preview', 'start_preview1','end_frame_helper', 'start_frame_helper', 'start_frame', 'end_frame','driver_crop_type', 'driver_crop_type_2', 'start_frame_helper', 'end_frame_helper','postprocessing_mode']
 
     for key in keys_to_clear:
         if key in st.session_state:
@@ -70,9 +70,10 @@ with col2:
 
     '''
     [![Repo](https://badgen.net/badge/icon/GitHub?icon=github&label)](https://github.com/danielsaed/F1-steering-angle-predictor) 
-    [![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-md.svg)](https://huggingface.co/datasets/daniel-saed/f1-steering-angle)
+    [![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-md.svg)](https://huggingface.co/datasets/daniel-saed/F1-steering-angle-dataset)
+
     '''
-    tabs = st.tabs(["Prediction", "About the model"])
+    tabs = st.tabs(["Use Model", "About"])
     # Initialize session state
     if 'video_processor' not in st.session_state:
         st.session_state.video_processor = VideoProcessor()
@@ -102,6 +103,8 @@ with col2:
         st.session_state.end_dic = None
     if 'start_dic' not in st.session_state:
         st.session_state.start_dic = None
+    if 'postprocessing_mode' not in st.session_state:
+        st.session_state.model_handler.postprocessing_mode = None
 
 
 
@@ -112,27 +115,33 @@ with col2:
             st.markdown("#### Step 1: Upload F1 Onboard Video ⬆️")
             st.markdown("")
             st.markdown("Recomendations:")  
-            st.markdown("- 1 lap videos, full onboard screen")
-            st.markdown("- 1080p,720p,480p resolutions, 10 to 30 FPS, 16/9 aspect ratio, consider 200mb restriction")
+            
+            st.markdown("- Check historical DB before, the lap may already be processed.")
+            st.markdown("- To record disable hardware aceleration on chrome.")
+            st.markdown("- Onboards with no steering wheel visibility, like Leclerc's 2025, may not work well.")
+
 
             uploaded_file = create_upload_section()
 
         with coll3:
-            st.markdown("<span style='margin-right: 18px;'><strong>Onboard video example:</strong></span>", unsafe_allow_html=True)
+            st.markdown("<span style='margin-right: 18px;'><strong>Onboard example:</strong></span>", unsafe_allow_html=True)
+            st.markdown("- 1080p,720p,480p resolutions, 10 to 30 FPS.")
+            st.markdown("- Full onboard (mandatory).")
             #st.markdown("( For testing, if needed )", unsafe_allow_html=True)
 
             VIDEO_URL = Path(BASE_DIR) / "assets" / "demo_video.mp4"
             st.video(VIDEO_URL)
 
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
-        st.markdown("")
 
         if uploaded_file:
-            with st.spinner("Loading video..."):
+            with st.spinner("Loading..."):
+                
+                st.markdown("")
+                st.markdown("")
+                st.markdown("")
+                st.markdown("")
+                st.markdown("")
+                st.markdown("")
             # Load video
                 if st.session_state.video_processor.load_video(uploaded_file):
                     
@@ -179,7 +188,7 @@ with col2:
                             "Select Start Frame",
                             min_value=st.session_state.video_processor.start_frame_min,
                             max_value=st.session_state.video_processor.start_frame_max,
-                            value=0,
+                            value=st.session_state.start_frame_helper,
                             step=1,
                             help="Select the start frame for processing",
                             key="start_frame_slider"
@@ -190,7 +199,7 @@ with col2:
                             "Select Start Frame",
                             min_value=st.session_state.video_processor.end_frame_min,
                             max_value=st.session_state.video_processor.end_frame_max,
-                            value=st.session_state.video_processor.end_frame_max,
+                            value=st.session_state.end_frame_helper,
                             step=1,
                             help="Select the start frame for processing",
                             key="end_frame_slider"
@@ -203,21 +212,29 @@ with col2:
                     
                     with btn_cols[0]:
                         if st.button("-1",key="start_minus_1",use_container_width=True):
-                            st.session_state.start_frame_helper = max(start_frame_min, st.session_state.start_frame_helper - 1)   
+                            st.session_state.start_frame_helper = max(start_frame_min, st.session_state.start_frame_helper - 1)
+                            st.rerun()  # Rerun to update the UI with the new value   
                     with btn_cols[1]:
                         if st.button("+1",key="start_plus_1",use_container_width=True):
-                            st.session_state.start_frame_helper = min(start_frame_max, st.session_state.start_frame_helper + 1)       
+                            st.session_state.start_frame_helper = min(start_frame_max, st.session_state.start_frame_helper + 1)
+                            st.rerun()  # Rerun to update the UI with the new value       
                     with btn_cols[3]:
                         if st.button("-1", key="end_minus_1",
                                 help="Decrease end frame by 1",
                                 use_container_width=True):
-                            st.session_state.end_frame_helper = max(end_frame_min, st.session_state.end_frame_helper - 1)  
+                            st.session_state.end_frame_helper = max(end_frame_min, st.session_state.end_frame_helper - 1)
+                            st.rerun()  # Rerun to update the UI with the new value  
                     with btn_cols[4]:
                         if st.button("+1", key="end_plus_1",
                                 help="Increase end frame by 1", 
                                 use_container_width=True):
                             st.session_state.end_frame_helper = min(end_frame_max, st.session_state.end_frame_helper + 1)
-                            #st.rerun()
+                            st.rerun()
+
+
+                    print("Start frame helper:", st.session_state.end_frame_helper)
+                    print("Start frame helper:", st.session_state.end_frame)
+
                     
                     
                     # Añadir un poco de espacio entre botones y previsualizaciones
@@ -359,10 +376,6 @@ with col2:
                         # End frame preview
                         with preview_cols1[1]:
                             st.markdown("##### Example frame")
-                            #end_preview1 = st.session_state.video_processor.get_frame(end_frame)
-                            #end_preview1 = cv2.imread("img\example.png")
-                            
-                            
                             st.image(Path(BASE_DIR) / "img" / "example.png", caption=f"GOAL Frame:",use_container_width=True)
 
                         
@@ -372,10 +385,40 @@ with col2:
                         st.markdown("")
                         st.markdown("")
                         st.markdown("")
+                        st.markdown("")
+                        st.markdown("")
+                        st.markdown("")
+
+                        st.markdown("#### Step 5: (Opcional) Postprocessing Settings")
+                        st.markdown("- First try default mode, is the best for 90% of the cases")
+
+                        #agregar opciones en radio para elegir el tipo de procesamiento
+
+                        postprocessing_mode = st.radio(
+                            "Select Postprocessing Mode",
+                            options=["Default","Low ilumination"],
+                            index=0,
+                            help="Choose the postprocessing mode for the model",
+                            horizontal=False
+                        )
+                        if postprocessing_mode != st.session_state.model_handler.postprocessing_mode:
+                            
+                            st.session_state.btn = False
+                            st.session_state.model_handler.postprocessing_mode = postprocessing_mode
+                           #st.rerun()  # Rerun to update the UI with the new value
+
+
+                        # Process button
+                        st.markdown("")
+                        st.markdown("")
+                        st.markdown("")
+                        st.markdown("")
+                        st.markdown("")
+                        st.markdown("")
 
 
 
-
+                        
 
 
                         st.markdown("#### Step 4: Execute Model 🚀")
@@ -384,6 +427,7 @@ with col2:
                             if not(st.session_state.get('btn', True)):
                                 # Reset profiler before processing
                                 profiler.reset()
+                                #st.rerun()  # Rerun to update the UI with the new value
                                 
                                 with st.spinner("Processing frames..."):
                                     if int(selected_duration*st.session_state.fps_target) > 500:
@@ -391,6 +435,7 @@ with col2:
                     
 
                                     # Extract and process frames
+                                    st.session_state.video_processor.mode = postprocessing_mode
                                     frames,crude_frames = st.session_state.video_processor.extract_frames(
                                         st.session_state.start_frame_helper, st.session_state.end_frame_helper, fps_target=st.session_state.fps_target
                                     )
@@ -469,92 +514,79 @@ with col2:
         
     with tabs[1]:  # Driver Behavior tab
         
-        st.info("The model is for research/educational purposes only, its not related to F1 or any organization.")
+        st.info("For research/educational purposes only, its not related to F1 or any organization.")
 
-        st.markdown("""
-        ### The Model 
+
         
-        Steering input is one of the key fundamental insights into driving behavior, performance and style. However, there is no straigfoward public source, tool or API to access steering angle data. The only available source is onboard camera footage, which comes with its own limitations, such as camera position, shadows, weather conditions, and lighting. Despite these challenges, I think we can work around them to extract valuable insights.
+        
+        
+        st.markdown("""
+        #####
+        ## The Model 
+                         
+        - The **F1 Steering Angle Prediction Model** uses a CNN based on EfficientNet-B0 to predict steering angles from a F1 onboard camera footage, trained with over 25,000 images (7000 manual labaled augmented to 25000) and YOLOv8-seg nano for helmets segmentation, allowing the model to be more robust by erasing helmet designs.
+        
+        - Currentlly the model is able to predict steering angles from 180° to -180° with a 3°-5° of error on ideal contitions.
                     
-        - The **F1 Steering Angle Prediction Model** is a Convolutional Neural Network (CNN) based on EfficientNet-B0 with a regression head for angles from -180° to 180° to predict steering angles from a F1 onboard camera footage ( only for current gen F1 cars ), trained with over 1500 images, check **Technical Details** for image preprocesing.
-        
-        - Currentlly the model is able to predict steering angles with a decent accuracy, but it's still in development and will be improved in future versions, I recommend to use for analyse patterns, trends and other insights related, but not for precision steering angle analysis, for now.
-        #####
-        ### How It Works
-
-        
-        1. **Video Processing**: From the onboard camera video, frames are extracted at your selected FPS rate (Check video example on Prediction tab for reference)
-        2. **Image Preprocessing**:
-        - Cropping the image to focus on the track area
-        - Applying CLAHE (Contrast Limited Adaptive Histogram Equalization) to enhance visibility
-        - Edge detection to highlight track boundaries
-        3. **Neural Network Prediction**: A CNN model processes the edge image to predict the steering angle
-        4. **Postprocessing**: apply local a trend-based outlier correction algorithm to detect and correct outliers
-        4. **Results Visualization**: Angles are displayed as a line chart with statistical analysis also a excel with the frame and the steering angle.""")
-
-        
-        
-                ### Model Architecture
-        st.markdown("""
-        #####
-        ### Architecture
-        Key features:
-        
-        - Input: 224x224px grayscale edge-detected images
-        - Model: CNN with EfficientNet-B0 backbone and regression head
-        - Output: Steering angle prediction between -180° and +180° with a local trend-based outlier correction algorithm
-        - Training data: Over 1500+ Manually annotated F1 onboard footage      
-        """)
-
-        '''
-        [![Repo](https://badgen.net/badge/icon/GitHub?icon=github&label)](https://github.com/danielsaed/F1-steering-angle-predictor) 
-        [![Dataset on HF](https://huggingface.co/datasets/huggingface/badges/resolve/main/dataset-on-hf-md.svg)](https://huggingface.co/datasets/daniel-saed/f1-steering-angle)
-        '''
-
-        st.markdown("""
-        #####
-        ### Performance Analysis
-        
-        After very long time and effort, the model has achieved the following performance metrics:
-        
-        - From 0 to +-90° = 6° of ground truth, from +-90° to +-180° = 13° of ground truth (this will improve in future versions, more images are needed to improve the model)
+        - EfficientNet-B0 and YOLOv8-seg nano are exported to ONNX format, and images are resized to 224x224 allowing it to run on low-end devices.
                     
-        **Limitations**: Performance may decrease in:
-        - Low visibility conditions (rain, extreme shadows)
-        - Not well recorded videos (low resolution, high compression)
-        - Change of onboard camera position (different angle, height)
         
+                    
         #####
-        ### Image Technical Details
+        ## How It Works
         
-        The preprocessing pipeline is critical for good model performance:
-        
-        1. **Grayscale Conversion**: Reduces input size and complexity
-        2. **Cropping**: Focuses on the track area for better predictions
-        3. **Adaptive CLAHE**: Dynamically adjusts contrast to maximize track features visibility
-        4. **Binary Thresholding**: Converts the image to binary for edge detection
-        2. **Edge Detection**: Uses adaptive Canny edge detection targeting ~6% edge pixels per image
-        3. **Model Format**: ONNX format for cross-platform compatibility and faster inference
-        4. **Batch Processing**: Inference is done in batches for improved performance
-        
-        """)
+        ##### Video Processing: 
+        - From the onboard camera video, the frames selected are extracted at the FPS rate.
+                    
+        ##### Image Preprocessing:
+        - The frames are cropeed based on selected crop type to focus on the steering wheel and driver area.
+        - YOLOv8-seg nano is applied to the cropped images to segment the helmet, removing designs and logos.
+        - Convert cropped images to grayscale and apply CLAHE to enhance visibility.
+        - Apply adaptive Canny edge detection to extract edges, helped with preprocessing techniques like bilateralFilter and morphological transformations.
+    
+        ##### Prediction: 
+        - The CNN model processes the edge image to predict the steering angle
+                    
+        ##### Postprocessing
+        - apply local a trend-based outlier correction algorithm to detect and correct outliers
+                    
+        ##### Results Visualization
+        - Angles are displayed as a line chart with statistical analysis also a csv file with the frame number, time and the steering angle.
+        #####""")
 
-        st.markdown("""
-        #####
-        ### Image Preprocessing Example""")
-        col1, col2, col3 = st.columns([20,11.5,11.5])
-        
-        
-        with col1:
-            st.image(Path(BASE_DIR) / "img" / "piastri-azerbaiyan_raw.jpg", caption="1. Original Frame")
 
-        
-        with col2:
+        coll1, coll2, coll3,coll4,coll5 = st.columns([40,23,23,23,23])
+
+        with coll1:
+            st.image(Path(BASE_DIR) / "img" / "verstappen_china_2025.jpg", caption="1. Original Frame", use_container_width=True)
+        with coll2:
             # Mostrar ejemplos de preprocesamiento - necesitas agregar estas imágenes a tu carpeta img/
             
-            st.image(Path(BASE_DIR) / "img" / "piastri-azerbaiyan_clahe.jpg", caption="2. After CLAHE Enhancement")
+            st.image(Path(BASE_DIR) / "img" / "verstappen_china_2025_cropped.jpg", caption="2. Crop image",use_container_width=True)
+
             
-        with col3:
-            st.image(Path(BASE_DIR) / "img" / "piastri-azerbaiyan_edge.jpg", caption="3. Edge Detection (Model Input)")
+        with coll3:
+            st.image(Path(BASE_DIR) / "img" / "verstappen_china_2025_nohelmet.jpg", caption="3. Segment Helmet with YOLO",use_container_width=True)
+        
+        with coll4:
+            st.image(Path(BASE_DIR) / "img" / "verstappen_china_2025_clahe.jpg", caption="4. Apply clahe",use_container_width=True)
+        
+        with coll5:
+            st.image(Path(BASE_DIR) / "img" / "verstappen_china_2025_tresh.jpg", caption="5. Edge detection",use_container_width=True)
+
+                    
+        st.markdown("""
+        ####
+        ## Limitations 
+        - Low visibility conditions (rain, extreme shadows, extreme light).
+        - Not well recorded videos.
+        - Change of onboard camera position (different angle, height, shakiness).
+                    """)
+
+        
+
+        
+        
+        
         
         
