@@ -116,6 +116,7 @@ class VideoProcessor:
         self.conf_thres = 0.5  # Confidence threshold
         self.iou_thres = 0.5   # IoU threshold for NMS
         self.frame_count = 0
+        self.mode = "Default"  # Default to False, can be set later
 
 
         self.frame_cache = OrderedDict()
@@ -1036,8 +1037,11 @@ class VideoProcessor:
     def apply_clahe(self, image):
 
         image = recortar_imagen(image,self.starty, self.axes)
+        if self.mode == "Default":
+            clahe_image = cv2.createCLAHE(clipLimit=5.0, tileGridSize=(3, 3)).apply(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
         
-        clahe_image = cv2.createCLAHE(clipLimit=7, tileGridSize=(3, 3)).apply(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
+        elif self.mode == "Low ilumination":
+            clahe_image = cv2.createCLAHE(clipLimit=7.0, tileGridSize=(3, 3)).apply(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
         #clahe_image = cv2.equalizeHist(image)
         return clahe_image
     
@@ -1059,7 +1063,8 @@ class VideoProcessor:
             min_edge_percentage=percentage,
             max_edge_percentage=percentage,
             target_percentage=percentage,
-            max_attempts=1
+            max_attempts=1,
+            mode = self.mode
         )
         
         # Save the edge image
