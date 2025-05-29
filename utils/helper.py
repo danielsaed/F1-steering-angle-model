@@ -48,11 +48,13 @@ print(f"Final BASE_DIR: {BASE_DIR}")
 
 
 
-
+#st.secrets["MONGO_URI"]
 #load_dotenv()  # Carga las variables desde .env
+#load_dotenv()
 #mongo_uri = os.getenv("MONGO_URI")
 @st.cache_resource
 def get_mongo_client():
+    #return MongoClient(os.getenv("MONGO_URI"))
     return MongoClient(st.secrets["MONGO_URI"])
 client = get_mongo_client()
 
@@ -439,7 +441,7 @@ def adaptive_clahe_iterative(image, roi_mask, initial_clip_limit=1.0, max_clip_l
     
     return best_image
 
-def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage=6.5, target_percentage=6.0, max_attempts=5):
+def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage=6.5, target_percentage=6.0, max_attempts=5,mode="Default"):
     """
     Detecta bordes con ajuste progresivo de parámetros hasta lograr un porcentaje óptimo
     de píxeles de borde en la imagen - optimizado con operaciones vectorizadas.
@@ -487,17 +489,26 @@ def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage
         
         enhanced = clahe.apply(gray)
 
-        denoised = cv2.bilateralFilter(enhanced, d=5, sigmaColor=200, sigmaSpace=200)
+        
         #print("denoised shape:", denoised.shape, "dtype:", denoised.dtype)
         # Apply noise reduction for higher attempts
         '''if attempt >= 2:
             enhanced = cv2.bilateralFilter(enhanced, 5, 100, 100)'''
         
 
-        median_intensity = np.median(denoised)
-        low_threshold = max(20, (1.0 -.3) * median_intensity)
-        high_threshold = max(80, (1.0 + 0.8) * median_intensity)
+        
+        if mode == "Default":
+            denoised = cv2.bilateralFilter(enhanced, d=5, sigmaColor=200, sigmaSpace=200)
+            median_intensity = np.median(denoised)
+            low_threshold = max(20, (1.0 - .3) * median_intensity)
+            high_threshold = max(80, (1.0 + .8) * median_intensity)
+        elif mode == "Low ilumination":
+            denoised = cv2.bilateralFilter(enhanced, d=5, sigmaColor=200, sigmaSpace=200)
+            median_intensity = np.median(denoised)
+            low_threshold = max(20, (1.0 - .3) * median_intensity)
+            high_threshold = max(80, (1.0 + .8) * median_intensity)
         # Edge detection
+        
         edges = cv2.Canny(denoised, low_threshold, high_threshold)
         std_intensity = np.std(edges)
         
@@ -509,6 +520,7 @@ def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage
             kernel, 
             iterations=0 if std_intensity < 60 else 1  # Más iteraciones si hay más ruido
         )
+        
         
         # Count edge pixels - vectorizado usando np.count_nonzero
         edge_count = np.count_nonzero(edges)
