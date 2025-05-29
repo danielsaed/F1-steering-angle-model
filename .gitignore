@@ -6,4 +6,5 @@
 /build
 /venv
 .env
-.streamlit
+.streamlit/secrets.toml
+.dockerignore
