@@ -49,13 +49,25 @@ print(f"Final BASE_DIR: {BASE_DIR}")
 
 
 #st.secrets["MONGO_URI"]
-#load_dotenv()  # Carga las variables desde .env
-#load_dotenv()
+load_dotenv()
+
+# Obtener MONGO_URI de forma segura
+def get_mongo_uri():
+    # Primero intenta desde variables de entorno
+    mongo_uri = os.getenv("MONGO_URI")
+    if mongo_uri:
+        return mongo_uri
+    # Luego intenta desde st.secrets si está disponible
+    try:
+        return st.secrets.get("MONGO_URI", None)
+    except (AttributeError, st.StreamlitAPIException):
+        return "a"
+
 #mongo_uri = os.getenv("MONGO_URI")
 @st.cache_resource
 def get_mongo_client():
-    #return MongoClient(os.getenv("MONGO_URI"))
-    return MongoClient(st.secrets["MONGO_URI"])
+    return MongoClient(get_mongo_uri())
+    #return MongoClient(st.secrets["MONGO_URI"])
 client = get_mongo_client()
 
 
