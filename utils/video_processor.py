@@ -20,6 +20,7 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from utils.helper import BASE_DIR
+import os
 
 class Profiler:
     """Clase para trackear el tiempo de ejecución de las funciones"""
@@ -117,6 +118,7 @@ class VideoProcessor:
         self.iou_thres = 0.5   # IoU threshold for NMS
         self.frame_count = 0
         self.mode = "Default"  # Default to False, can be set later
+        self.video_name = "no_name"
 
 
         self.frame_cache = OrderedDict()
@@ -382,7 +384,7 @@ class VideoProcessor:
         "helmet_height_ratio": 0.5
     }}
         
-        print(f"Driver crop type: {self.driver_crop_type}")
+        #print(f"Driver crop type: {self.driver_crop_type}")
         self.driver_crop_type = driver_crop_type
         self.starty = driver_config[self.driver_crop_type]["starty"]
         self.axes = driver_config[self.driver_crop_type]["axes"]
@@ -409,12 +411,15 @@ class VideoProcessor:
         
         # Guardar ruta para posibles reinicios
         self.video_path = tfile.name
+
+        # Obtener solo el nombre sin extensión (opcional)
+        self.video_name = os.path.splitext(os.path.basename(self.video_path))[0]
         
         self.cap = cv2.VideoCapture(tfile.name)
         self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
-        print(f"FPS: {self.fps}")
-        print(f"Total frames: {self.total_frames}")
+        #print(f"FPS: {self.fps}")
+        #print(f"Total frames: {self.total_frames}")
 
 
         #self.frames_list_start = [None] * self.total_frames  # prealocamos
@@ -428,7 +433,7 @@ class VideoProcessor:
             self.end_frame_min = int(self.total_frames * 0.9)
         self.end_frame_max = self.total_frames - 1
         i = 0
-        print(len(self.frames_list_start), len(self.frames_list_end))
+        #print(len(self.frames_list_start), len(self.frames_list_end))
 
         if self.frames_list_end == {}:
 
@@ -515,8 +520,8 @@ class VideoProcessor:
             # Get original video properties
             self.total_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
             self.fps = int(self.cap.get(cv2.CAP_PROP_FPS))
-            print(f"FPS: {self.fps}")
-            print(f"Total frames: {self.total_frames}")
+            #print(f"FPS: {self.fps}")
+            #print(f"Total frames: {self.total_frames}")
 
             # Prepare for resizing and saving to a new temporary file
             output_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
@@ -837,7 +842,6 @@ class VideoProcessor:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         outputs = self.model.run(None, {"images":preprocess_image_tensor(img)})
-        print("test")
         flag,result = postprocess_outputs(outputs, height, width)
 
         
@@ -993,7 +997,6 @@ class VideoProcessor:
         cropped_image = image[y_start:y_start+crop_height, x_start:x_end]
 
         
-        print(cropped_image.shape)
         return cropped_image
     
     def crop_frame_example(self,image):
