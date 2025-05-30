@@ -19,17 +19,17 @@ from utils.video_processor import profiler
 if 'BASE_DIR' not in st.session_state:
     from utils.helper import BASE_DIR,metrics_collection
     st.session_state.BASE_DIR = BASE_DIR
-    print("BASE_DIR", BASE_DIR)
+    #print("BASE_DIR", BASE_DIR)
 
 if 'metrics_collection' not in st.session_state:
     from utils.helper import BASE_DIR,metrics_collection
     st.session_state.metrics_collection = metrics_collection
-    print("metrics_collection", metrics_collection)
+    #print("metrics_collection", metrics_collection)
 
 BASE_DIR = st.session_state.BASE_DIR
 metrics_collection = st.session_state.metrics_collection
 path_load_css = Path(BASE_DIR) / "assets" / "style.css"
-print(path_load_css)
+#print(path_load_css)
 
 def load_css():
     with open(Path(BASE_DIR) / "assets" / "style.css") as f:
@@ -104,7 +104,7 @@ with col2:
     if 'start_dic' not in st.session_state:
         st.session_state.start_dic = None
     if 'postprocessing_mode' not in st.session_state:
-        st.session_state.model_handler.postprocessing_mode = None
+        st.session_state.postprocessing_mode = None
 
 
 
@@ -135,6 +135,7 @@ with col2:
 
         if uploaded_file:
             with st.spinner("Loading..."):
+                print("Video uploaded")
                 
                 st.markdown("")
                 st.markdown("")
@@ -148,17 +149,17 @@ with col2:
 
                     if st.session_state.end_dic is None:
                         st.session_state.end_dic = st.session_state.video_processor.frames_list_end
-                        print("End dic loaded:")
+                        #print("End dic loaded:")
 
                     if st.session_state.start_dic is None:
                         st.session_state.start_dic = st.session_state.video_processor.frames_list_start
-                        print("Start dic loaded:")
+                        #print("Start dic loaded:")
                     
                     
                     total_frames = st.session_state.video_processor.total_frames
                     original_fps = st.session_state.video_processor.fps
-                    print("Original FPS:", original_fps)
-                    print("Total frames:", total_frames)
+                    #print("Original FPS:", original_fps)
+                    #print("Total frames:", total_frames)
 
 
                     
@@ -232,8 +233,8 @@ with col2:
                             st.rerun()
 
 
-                    print("Start frame helper:", st.session_state.end_frame_helper)
-                    print("Start frame helper:", st.session_state.end_frame)
+                    #print("Start frame helper:", st.session_state.end_frame_helper)
+                    #print("Start frame helper:", st.session_state.end_frame)
 
                     
                     
@@ -250,7 +251,7 @@ with col2:
                         if (st.session_state.start_preview is None or 
                             st.session_state.start_frame_helper != st.session_state.start_frame):
                             try:
-                                print("Getting start frame preview for frame:", st.session_state.start_frame_helper)
+                                #print("Getting start frame preview for frame:", st.session_state.start_frame_helper)
                                 st.session_state.start_preview = st.session_state.start_dic[st.session_state.start_frame_helper]
                                 # Actualizar también el valor de referencia en session_state
                                 st.session_state.start_frame = st.session_state.start_frame_helper
@@ -259,7 +260,7 @@ with col2:
                                 pass
                         
                         if st.session_state.start_preview is not None:
-                            print("Displaying start frame preview for frame:", st.session_state.start_frame_helper)
+                            #print("Displaying start frame preview for frame:", st.session_state.start_frame_helper)
                             st.image(st.session_state.start_preview, caption=f"Start Frame: {st.session_state.start_frame_helper}", use_container_width=True)
                     
                     # End frame preview
@@ -269,7 +270,7 @@ with col2:
                         if (st.session_state.end_preview is None or 
                             st.session_state.end_frame_helper != st.session_state.end_frame):
                             try:
-                                print("Getting end frame preview for frame:", st.session_state.end_frame_helper)
+                                #print("Getting end frame preview for frame:", st.session_state.end_frame_helper)
                                 st.session_state.end_preview = st.session_state.end_dic[st.session_state.end_frame_helper]
                                 # Actualizar también el valor de referencia en session_state
                                 st.session_state.end_frame = st.session_state.end_frame_helper
@@ -323,7 +324,7 @@ with col2:
                     #('Verstappen 2025', 'Piastri 2025','Norris 2025','Leclerc 2025','Hamilton 2025','Russell 2025', 'Antonelli 2025', 'Tsunoda 2025')
 
 
-                    driver_crop_type = st.session_state.driver_crop_type_2
+                    driver_crop_type = st.session_state.driver_crop_type
 
                     st.markdown("#### Step 3: Select Crop type 👈")
                     st.markdown("- Steering wheel, helmet and hands shold be visible, aim for acrop type like the example image.")
@@ -359,6 +360,8 @@ with col2:
                         if st.session_state.driver_crop_type != driver_crop_type:
                                 
                             st.session_state.btn = False
+                            #st.session_state.driver_crop_type = driver_crop_type
+
 
                         
                         preview_cols1 = st.columns(2)
@@ -391,21 +394,23 @@ with col2:
 
                         st.markdown("#### Step 5: (Opcional) Postprocessing Settings")
                         st.markdown("- First try default mode, is the best for 90% of the cases")
+                        postprocessing_mode = st.session_state.postprocessing_mode
 
                         #agregar opciones en radio para elegir el tipo de procesamiento
 
-                        postprocessing_mode = st.radio(
+                        st.session_state.postprocessing_mode = st.radio(
                             "Select Postprocessing Mode",
                             options=["Default","Low ilumination"],
                             index=0,
                             help="Choose the postprocessing mode for the model",
                             horizontal=False
                         )
-                        if postprocessing_mode != st.session_state.model_handler.postprocessing_mode:
+                        if postprocessing_mode != st.session_state.postprocessing_mode:
                             
                             st.session_state.btn = False
-                            st.session_state.model_handler.postprocessing_mode = postprocessing_mode
-                           #st.rerun()  # Rerun to update the UI with the new value
+                            #print("ininini")
+                            
+                            #st.rerun()  # Rerun to update the UI with the new value
 
 
                         # Process button
@@ -416,17 +421,13 @@ with col2:
                         st.markdown("")
                         st.markdown("")
 
-
-
-                        
-
-
                         st.markdown("#### Step 4: Execute Model 🚀")
                         if st.button("Process Video Segment") or st.session_state.get('btn', True):
-
+                            
                             if not(st.session_state.get('btn', True)):
                                 # Reset profiler before processing
                                 profiler.reset()
+                                print("Processing video...")
                                 #st.rerun()  # Rerun to update the UI with the new value
                                 
                                 with st.spinner("Processing frames..."):
@@ -435,7 +436,7 @@ with col2:
                     
 
                                     # Extract and process frames
-                                    st.session_state.video_processor.mode = postprocessing_mode
+                                    st.session_state.video_processor.mode = st.session_state.postprocessing_mode
                                     frames,crude_frames = st.session_state.video_processor.extract_frames(
                                         st.session_state.start_frame_helper, st.session_state.end_frame_helper, fps_target=st.session_state.fps_target
                                     )
@@ -470,6 +471,12 @@ with col2:
 
                             
                             st.markdown("# Results")
+                            st.markdown("")
+                            #st.markdown("#### Download Results 📥")
+                            #if st.button("Download Results (CSV)"):
+                            #    st.session_state.btn = True
+                            #    df.to_csv(str(st.session_state.driver_crop_type)+"_Steering_data_results.csv", index=False)
+                            #    st.info("Results downloaded successfully! you can find the file in your current directory.")
 
                             display_results(df)
 
@@ -503,6 +510,7 @@ with col2:
 
 
         else:
+            print("No video uploaded yet.")
             st.session_state.btn = False
             try:
                 st.session_state.video_processor.clean_up()  # Clear cache if no video is uploaded
