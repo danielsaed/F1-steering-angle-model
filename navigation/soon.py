@@ -56,7 +56,12 @@ with col2:
                                 with st.spinner("Processing frames..."):
 
                                     display_results(df)
+                                    #st.markdown("#### Download Results 📥")
 
+                                    #if st.button("Download Results (CSV)"):
+                                    #    st.session_state.btn = True
+                                    #    df.to_csv(str(driver)+"_Steering_data_results.csv", index=False)
+                                    #    st.info("Results downloaded successfully! you can find the file in your current directory.")
                                     st.markdown("")
                                     st.subheader("Steering Line Chart 📈")
                                     # Create a Plotly figure
