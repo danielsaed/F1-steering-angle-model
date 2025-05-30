@@ -57,7 +57,7 @@ def display_results(df: pd.DataFrame):
     st.download_button(
         label="Download Results (CSV)",
         data=csv,
-        file_name="f1_analysis_results.csv",
+        file_name="Steering_Angle_Results.csv",
         mime="text/csv"
     )
     st.markdown("")
