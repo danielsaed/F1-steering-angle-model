@@ -13,9 +13,6 @@ A machine learning application that predicts steering angles from F1 onboard cam
 
 <p align="center">
     <img src="img/web1.jpg" width="100%" alt="Raw Input">
-    <img src="img/web2.jpg" width="100%" alt="Raw Input">
-    <img src="img/web3.jpg" width="100%" alt="Raw Input">
-    <img src="img/web4.jpg" width="100%" alt="Raw Input">
 </p>
 
 ## About the Project
