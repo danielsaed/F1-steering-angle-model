@@ -14,7 +14,7 @@ try:
     if getattr(sys, 'frozen', False):
         # En el ejecutable, intentar sys._MEIPASS
         BASE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
-        print(f"Executable mode - Initial BASE_DIR: {BASE_DIR} (_MEIPASS: {hasattr(sys, '_MEIPASS')})")
+        #print(f"Executable mode - Initial BASE_DIR: {BASE_DIR} (_MEIPASS: {hasattr(sys, '_MEIPASS')})")
         # Verificar si BASE_DIR contiene los archivos esperados
         expected_dirs = ['navigation', 'models', 'assets', 'img', 'utils']
         if not any(os.path.exists(os.path.join(BASE_DIR, d)) for d in expected_dirs):
@@ -33,35 +33,40 @@ try:
     else:
         # En desarrollo, usar el directorio del proyecto
         current_file = os.path.abspath(os.path.realpath(__file__))
-        print(f"Development mode - Current file: {current_file}")
+        #print(f"Development mode - Current file: {current_file}")
         BASE_DIR = os.path.dirname(os.path.dirname(current_file))  # Subir de utils/ a F1-machine-learning-webapp/
-        print(f"Development mode - BASE_DIR: {BASE_DIR}")
+        #print(f"Development mode - BASE_DIR: {BASE_DIR}")
 except Exception as e:
-    print(f"Error setting BASE_DIR: {e}")
+    #print(f"Error setting BASE_DIR: {e}")
     # Fallback
     BASE_DIR = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
     BASE_DIR = os.path.dirname(BASE_DIR)
-    print(f"Fallback BASE_DIR: {BASE_DIR}")
+    #print(f"Fallback BASE_DIR: {BASE_DIR}")
 
 BASE_DIR = os.path.normpath(BASE_DIR)
-print(f"Final BASE_DIR: {BASE_DIR}")
+#print(f"Final BASE_DIR: {BASE_DIR}")
 
 
 
 #st.secrets["MONGO_URI"]
-load_dotenv()
+
+
 
 # Obtener MONGO_URI de forma segura
 def get_mongo_uri():
-    # Primero intenta desde variables de entorno
-    mongo_uri = os.getenv("MONGO_URI")
-    if mongo_uri:
-        return mongo_uri
-    # Luego intenta desde st.secrets si está disponible
     try:
-        return st.secrets.get("MONGO_URI", None)
-    except (AttributeError, st.StreamlitAPIException):
-        return "a"
+        dotenv_path = os.path.join(BASE_DIR, ".env")
+        load_dotenv(dotenv_path)
+        # Primero intenta desde variables de entorno
+        mongo_uri = os.getenv("MONGO_URI")
+        if mongo_uri:
+            return mongo_uri
+    except:
+        # Luego intenta desde st.secrets si está disponible
+        try:
+            return st.secrets.get("MONGO_URI", None)
+        except:
+            return "a"
 
 #mongo_uri = os.getenv("MONGO_URI")
 @st.cache_resource
@@ -559,5 +564,5 @@ def adaptive_edge_detection(imagen, min_edge_percentage=5.5, max_edge_percentage
         if abs(edge_percentage - target_percentage) < 0.1:  # Within 0.2% of target
             break
     
-    print(f"Mejor intento: {best_config['attempt']}, porcentaje de bordes: {edge_percentage:.2f}%")
+    #print(f"Mejor intento: {best_config['attempt']}, porcentaje de bordes: {edge_percentage:.2f}%")
     return best_enhanced, best_edges, original, best_config
