@@ -8,6 +8,18 @@ from utils.ui_components import (
 )
 from utils.helper import client
 
+if 'BASE_DIR' not in st.session_state:
+    from utils.helper import BASE_DIR,metrics_collection
+    st.session_state.BASE_DIR = BASE_DIR
+    #print("BASE_DIR", BASE_DIR)
+
+if 'metrics_collection' not in st.session_state:
+    from utils.helper import BASE_DIR,metrics_collection
+    st.session_state.metrics_collection = metrics_collection
+    #print("metrics_collection", metrics_collection)
+
+BASE_DIR = st.session_state.BASE_DIR
+metrics_collection = st.session_state.metrics_collection
 
 col1, col2,col3 = st.columns([1,3,1])
 
@@ -47,6 +59,14 @@ with col2:
 
                             if doc and doc["data"]:
                                 df = pd.DataFrame(doc["data"])
+
+                                try:
+                                    metrics_collection.update_one(
+                                        {"action": "descargar_archivo_db"},
+                                        {"$inc": {"count": 1}}
+                                    )
+                                except:
+                                    st.warning("MongoDB client not connected.")
                                 #st.line_chart(df,x="time", y="steering_angle")
                                 #st.dataframe(df)
 
