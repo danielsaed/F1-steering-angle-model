@@ -11,6 +11,10 @@ A machine learning application that predicts steering angles from F1 onboard cam
 [![Hugging Face](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-sm.svg)](https://daniel-saed-f1-steering-angle-model.hf.space)
 
 <p align="center">
+  <img src="img/Piastri_Pole.gif" width="100%" alt="Steering Angle Demo">
+</p>
+
+<p align="center">
     <img src="img/web1.jpg" width="100%" alt="Raw Input">
 </p>
 
